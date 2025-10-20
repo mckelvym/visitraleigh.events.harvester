@@ -329,7 +329,7 @@ public class RaleighEventsRSSGenerator {
             Element blockMeta = eventCard.selectFirst("div.block-meta, [class*='block-meta']");
             if (blockMeta != null) {
                 StringBuilder descBuilder = new StringBuilder();
-                Function<String, String> liWrap = str -> "&lt;br/&gt;" + str;
+                Function<String, String> liWrap = str -> "<br/>" + str;
 
                 // Extract date info
                 Element dateInfo = blockMeta.selectFirst("[class*='dateInfo'], [class*='date-info']");

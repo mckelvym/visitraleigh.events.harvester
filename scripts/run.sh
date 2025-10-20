@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=1.0.0
+version=1.0.1
 echo "docker run registry.hub.docker.com/mckelvym/raleigh-events-rss-generator:${version}"
 docker run --rm --name=visit-raleigh-harvester \
   -v $(pwd)/../../visitraleigh.events.rss:/data \
