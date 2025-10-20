@@ -1,0 +1,78 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.google.cloud.tools.jib' version '3.4.5'
+}
+
+group = 'com.raleigh.events'
+version = '1.0.0'
+
+sourceCompatibility = '17'
+targetCompatibility = '17'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // JSoup for HTML parsing
+    implementation 'org.jsoup:jsoup:1.17.2'
+
+    // Selenium for JavaScript-rendered content
+    implementation 'org.seleniumhq.selenium:selenium-java:4.25.0'
+    implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.25.0'
+}
+
+application {
+    mainClassName = 'RaleighEventsRSSGenerator'
+}
+
+// Create a fat JAR with all dependencies
+tasks.register('fatJar', Jar) {
+    group = 'build'
+    description = 'Create a standalone JAR with all dependencies'
+
+    manifest {
+        attributes 'Main-Class': 'RaleighEventsRSSGenerator'
+    }
+
+    archiveBaseName.set('raleigh-events-rss-generator')
+    archiveClassifier.set('all')
+
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+
+    with jar
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Configure the default run task
+run {
+    if (project.hasProperty('args')) {
+        args project.property('args')
+    } else {
+        args 'events.xml'
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.deprecation = true
+}
+
+jib {
+    from {
+        image = 'seleniarm/standalone-chromium:latest'  // Alternative base
+        platforms {
+            platform {
+                architecture = 'amd64'
+                os = 'linux'
+            }
+            platform {
+                architecture = 'arm64'
+                os = 'linux'
+            }
+        }
+    }
+}
