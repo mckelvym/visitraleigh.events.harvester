@@ -411,6 +411,7 @@ public class RaleighEventsRSSGenerator {
 
     private void generateRSSFeed() throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setIgnoringElementContentWhitespace(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
         org.w3c.dom.Document doc = builder.newDocument();
 
@@ -435,11 +436,13 @@ public class RaleighEventsRSSGenerator {
 
         if (new File(rssFilePath).exists()) {
             org.w3c.dom.Document oldDoc = builder.parse(new File(rssFilePath));
+            oldDoc.getDocumentElement().normalize();
             org.w3c.dom.NodeList oldItems = oldDoc.getElementsByTagName("item");
 
             for (int i = 0; i < oldItems.getLength(); i++) {
                 org.w3c.dom.Node oldItem = oldItems.item(i);
                 org.w3c.dom.Node importedNode = doc.importNode(oldItem, true);
+                removeWhitespaceNodes(importedNode);
                 channel.appendChild(importedNode);
             }
         }
@@ -455,6 +458,27 @@ public class RaleighEventsRSSGenerator {
         transformer.transform(source, result);
 
         System.out.println("\nRSS feed written to: " + rssFilePath);
+    }
+
+    private void removeWhitespaceNodes(org.w3c.dom.Node node) {
+        java.util.Deque<org.w3c.dom.Node> stack = new java.util.ArrayDeque<>();
+        stack.push(node);
+
+        while (!stack.isEmpty()) {
+            org.w3c.dom.Node current = stack.pop();
+            org.w3c.dom.NodeList children = current.getChildNodes();
+
+            for (int i = children.getLength() - 1; i >= 0; i--) {
+                org.w3c.dom.Node child = children.item(i);
+                if (child.getNodeType() == org.w3c.dom.Node.TEXT_NODE) {
+                    if (child.getTextContent().trim().isEmpty()) {
+                        current.removeChild(child);
+                    }
+                } else if (child.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
+                    stack.push(child);
+                }
+            }
+        }
     }
 
     private void addEventItem(org.w3c.dom.Document doc, org.w3c.dom.Element channel, EventItem event) {
