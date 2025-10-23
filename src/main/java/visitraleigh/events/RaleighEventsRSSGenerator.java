@@ -1,3 +1,5 @@
+package visitraleigh.events;
+
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
@@ -49,7 +51,7 @@ public class RaleighEventsRSSGenerator {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("Usage: java RaleighEventsRSSGenerator <rss-file-path>");
+            System.err.println("Usage: java visitraleigh.events.RaleighEventsRSSGenerator <rss-file-path>");
             System.exit(1);
         }
 

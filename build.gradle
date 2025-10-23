@@ -24,7 +24,7 @@ dependencies {
 }
 
 application {
-    mainClassName = 'RaleighEventsRSSGenerator'
+    mainClassName = 'visitraleigh.events.RaleighEventsRSSGenerator'
 }
 
 // Create a fat JAR with all dependencies
@@ -33,7 +33,7 @@ tasks.register('fatJar', Jar) {
     description = 'Create a standalone JAR with all dependencies'
 
     manifest {
-        attributes 'Main-Class': 'RaleighEventsRSSGenerator'
+        attributes 'Main-Class': 'visitraleigh.events.RaleighEventsRSSGenerator'
     }
 
     archiveBaseName.set('raleigh-events-rss-generator')
