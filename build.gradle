@@ -1,6 +1,10 @@
+import com.github.spotbugs.snom.SpotBugsTask
+
 plugins {
     id 'java'
     id 'application'
+    id 'checkstyle'
+    id 'com.github.spotbugs' version '6.4.4'
     id 'com.google.cloud.tools.jib' version '3.4.5'
 }
 
@@ -32,6 +36,26 @@ application {
     mainClassName = 'visitraleigh.events.RaleighEventsRSSGenerator'
 }
 
+// Checkstyle configuration
+checkstyle {
+    toolVersion = '12.1.0'
+    configFile = file("${rootProject.projectDir}/config/checkstyle/checkstyle.xml")
+    maxWarnings = 0
+    maxErrors = 0
+}
+
+// SpotBugs configuration
+spotbugs {
+    ignoreFailures = false
+}
+
+tasks.withType(SpotBugsTask).configureEach {
+    reports {
+        html.required = true
+        xml.required = false
+    }
+}
+
 // Create a fat JAR with all dependencies
 tasks.register('fatJar', Jar) {
     group = 'build'
@@ -61,7 +85,7 @@ run {
     }
 }
 
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.deprecation = true
 }
