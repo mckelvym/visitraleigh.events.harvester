@@ -50,6 +50,7 @@ public class RaleighEventsRSSGenerator {
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
     private static final boolean DEBUG_MODE = false;
     private static final int DEFAULT_NUM_PAGES = 10;
+    private static final String LAST_PAGE_LINK_ELEMENT = "li.arrow.arrow-next.arrow-double";
 
     private final Set<String> existingGuids;
     private final List<EventItem> newEvents;
@@ -122,85 +123,105 @@ public class RaleighEventsRSSGenerator {
         WebDriver driver = getWebDriver();
 
         try {
-            int page = 1;
-            int numPages = 1;
-            while (page <= numPages) {
-                String url = BASE_URL + "?page=" + page;
-                logger.info("Scraping {}", url);
-
-                long startTime = System.currentTimeMillis();
-                driver.get(url);
-                logger.debug("Waiting for page to load...");
-
-                // Wait for a specific element to be present (most reliable)
-                WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
-                wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("li.arrow.arrow-next.arrow-double")));
-
-                logger.debug("Page loaded in {}ms", (System.currentTimeMillis() - startTime));
-
-                String pageSource = driver.getPageSource();
-
-                if (DEBUG_MODE && page == 1) {
-                    // Save first page for debugging
-                    try (PrintWriter out = new PrintWriter(new FileWriter("debug-page.html"))) {
-                        out.println(pageSource);
-                    }
-                    logger.debug("Debug: Page source saved to debug-page.html");
-                    logger.debug("Debug: Page source length: {} characters", pageSource != null ? pageSource.length() : 0);
-                }
-
-                Document doc = Jsoup.parse(requireNonNull(pageSource), url);
-                if (page == 1) {
-                    numPages = getNumPages(doc);
-                    logger.info("There are {} pages to parse.", numPages);
-                }
-
-                // Try to find all links that might be events (singular /event/)
-                Elements allLinks = doc.select("a[href*='/event/']");
-                logger.debug("Found {} links containing '/event/'", allLinks.size());
-
-                // Filter to actual event links (not listing pages)
-                Set<String> processedUrls = new HashSet<>();
-
-                for (Element link : allLinks) {
-                    String href = link.attr("abs:href");
-
-                    // Skip if already processed
-                    if (processedUrls.contains(href)) {
-                        continue;
-                    }
-
-                    // Skip if not a visitraleigh event
-                    if (!href.contains("visitraleigh.com/event/")) {
-                        continue;
-                    }
-
-                    // Must be a specific event URL with slug and ID
-                    if (!href.matches(".*/event/[^/]+/\\d+/?$")) {
-                        continue;
-                    }
-
-                    processedUrls.add(href);
-
-                    EventItem event = parseEventFromLink(link);
-
-                    if (event != null) {
-                        if (!existingGuids.add(event.guid)) {
-                            logger.debug("Found existing event: {}", event.title);
-                        } else {
-                            newEvents.add(event);
-                            logger.debug("Found new event: {}", event.title);
-                        }
-                    }
-                }
-
-                logger.info("Successfully parsed {} total events so far (page {} of {})",
-                        newEvents.size(), page, numPages);
-
-                page++;
-            }
+            int numPages = scrapeAllPages(driver);
+            logger.info("Successfully parsed {} total events across {} pages",
+                    newEvents.size(), numPages);
         } finally {
             driver.quit();
+        }
+    }
+
+    private int scrapeAllPages(WebDriver driver) throws IOException {
+        int page = 1;
+        int numPages = 1;
+
+        while (page <= numPages) {
+            String url = BASE_URL + "?page=" + page;
+            logger.info("Scraping {}", url);
+
+            Document doc = loadAndParsePage(driver, url, page);
+
+            if (page == 1) {
+                numPages = getNumPages(doc);
+                logger.info("There are {} pages to parse.", numPages);
+            }
+
+            scrapeEventsFromPage(doc);
+            logger.info("Successfully parsed {} total events so far (page {} of {})",
+                    newEvents.size(), page, numPages);
+
+            page++;
+        }
+
+        return numPages;
+    }
+
+    private Document loadAndParsePage(WebDriver driver, String url, int page) throws IOException {
+        long startTime = System.currentTimeMillis();
+        driver.get(url);
+        logger.debug("Waiting for page to load...");
+
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+        wait.until(ExpectedConditions.presenceOfElementLocated(
+                By.cssSelector(LAST_PAGE_LINK_ELEMENT)));
+
+        logger.debug("Page loaded in {}ms", (System.currentTimeMillis() - startTime));
+
+        String pageSource = driver.getPageSource();
+        saveDebugPageIfNeeded(pageSource, page);
+
+        return Jsoup.parse(requireNonNull(pageSource), url);
+    }
+
+    private void saveDebugPageIfNeeded(String pageSource, int page) throws IOException {
+        if (DEBUG_MODE && page == 1) {
+            try (PrintWriter out = new PrintWriter(new FileWriter("debug-page.html"))) {
+                out.println(pageSource);
+            }
+            logger.debug("Debug: Page source saved to debug-page.html");
+            logger.debug("Debug: Page source length: {} characters",
+                    pageSource != null ? pageSource.length() : 0);
+        }
+    }
+
+    private void scrapeEventsFromPage(Document doc) {
+        Elements allLinks = doc.select("a[href*='/event/']");
+        logger.debug("Found {} links containing '/event/'", allLinks.size());
+
+        Set<String> processedUrls = new HashSet<>();
+
+        for (Element link : allLinks) {
+            String href = link.attr("abs:href");
+
+            if (shouldProcessEventLink(href, processedUrls)) {
+                processedUrls.add(href);
+                processEventLink(link);
+            }
+        }
+    }
+
+    private boolean shouldProcessEventLink(String href, Set<String> processedUrls) {
+        if (processedUrls.contains(href)) {
+            return false;
+        }
+
+        if (!href.contains("visitraleigh.com/event/")) {
+            return false;
+        }
+
+        return href.matches(".*/event/[^/]+/\\d+/?$");
+    }
+
+    private void processEventLink(Element link) {
+        EventItem event = parseEventFromLink(link);
+
+        if (event != null) {
+            if (!existingGuids.add(event.guid)) {
+                logger.debug("Found existing event: {}", event.title);
+            } else {
+                newEvents.add(event);
+                logger.debug("Found new event: {}", event.title);
+            }
         }
     }
 
@@ -217,7 +238,7 @@ public class RaleighEventsRSSGenerator {
     }
 
     private int getNumPages(Document doc) {
-        final Elements doubleArrow = doc.select("li.arrow.arrow-next.arrow-double");
+        final Elements doubleArrow = doc.select(LAST_PAGE_LINK_ELEMENT);
         if (doubleArrow.isEmpty()) {
             return DEFAULT_NUM_PAGES;
         }
@@ -252,191 +273,210 @@ public class RaleighEventsRSSGenerator {
     private EventItem parseEventFromLink(Element linkElement) {
         try {
             String eventUri = linkElement.attr("abs:href");
+            logDebug("Parsing link: {}", eventUri);
 
-            if (DEBUG_MODE) {
-                logger.trace("Parsing link: {}", eventUri);
-            }
+            int id = extractEventId(eventUri);
+            Element eventCard = findEventCardContainer(linkElement);
 
-            final List<String> strings = Splitter.on("/").omitEmptyStrings().splitToList(eventUri);
-            final String lastElement = strings.get(strings.size() - 1);
-            int id = getEventId(lastElement);
-
-            // Find the event card container - go up the tree to find it
-            Element eventCard = linkElement;
-            for (int i = 0; i < 10; i++) {
-                Element parent = eventCard.parent();
-                if (parent == null) break;
-
-                String className = parent.className().toLowerCase();
-                String tagName = parent.tagName().toLowerCase();
-
-                // Look for common event card containers
-                if (className.contains("event") || className.contains("card") ||
-                        className.contains("result") || className.contains("listing") ||
-                        tagName.equals("article") || className.contains("item")) {
-                    eventCard = parent;
-                    break;
-                }
-                eventCard = parent;
-            }
-
-            // Now look for title anywhere in the event card
-            String title = "";
-
-            // Try headings first
-            Element heading = eventCard.selectFirst("h1, h2, h3, h4, h5, h6");
-            if (heading != null) {
-                title = heading.text().trim();
-            }
-
-            // Try title class
-            if (title.length() < 3) {
-                Element titleElem = eventCard.selectFirst("[class*='title'], [class*='Title'], [class*='name'], [class*='Name']");
-                if (titleElem != null) {
-                    title = titleElem.text().trim();
-                }
-            }
-
-            // Try link with text (not the image link)
-            if (title.length() < 3) {
-                Elements links = eventCard.select("a[href*='/event/']");
-                for (Element link : links) {
-                    String linkText = link.text().trim();
-                    if (linkText.length() > 3) {
-                        title = linkText;
-                        break;
-                    }
-                }
-            }
-
-            // Try image alt text
-            if (title.length() < 3) {
-                Element img = eventCard.selectFirst("img[alt]");
-                if (img != null) {
-                    String alt = img.attr("alt").trim();
-                    if (alt.length() > 3) {
-                        title = alt;
-                    }
-                }
-            }
-
-            // Try aria-label on the link
-            if (title.length() < 3) {
-                Elements linksWithAria = eventCard.select("a[aria-label]");
-                for (Element link : linksWithAria) {
-                    String ariaLabel = link.attr("aria-label").trim();
-                    if (ariaLabel.length() > 3) {
-                        title = ariaLabel;
-                        break;
-                    }
-                }
-            }
-
-            if (title.length() < 3) {
-                if (logger.isTraceEnabled()) {
-                    logger.trace("Could not extract title");
-                    String eventCardHtml = eventCard.html();
-                    logger.trace("Event card HTML (first 300 chars): {}",
-                            eventCardHtml.substring(0, Math.min(300, eventCardHtml.length())));
-                }
+            String title = extractTitle(eventCard);
+            if (title == null) {
                 return null;
             }
 
-            if (DEBUG_MODE) {
-                logger.trace("Title: {}", title);
-            }
+            logDebug("Title: {}", title);
 
-            // Look for date information in the event card
-            String dateStr = "";
-            Element dateElement = eventCard.selectFirst("time, [class*='date'], [class*='Date']");
-            if (dateElement != null) {
-                dateStr = dateElement.text().trim();
-            }
-
-            // Extract description from the event card
-            String description = "";
-
-            // Try to find block-meta div with dateInfo, times, location, region
-            Element blockMeta = eventCard.selectFirst("div.block-meta, [class*='block-meta']");
-            if (blockMeta != null) {
-                StringBuilder descBuilder = new StringBuilder();
-                UnaryOperator<String> liWrap = str -> "<br/>" + str;
-
-                // Extract date info
-                Element dateInfo = blockMeta.selectFirst("[class*='dateInfo'], [class*='date-info']");
-                if (dateInfo != null) {
-                    String dateText = dateInfo.text().trim();
-                    if (!dateText.isEmpty()) {
-                        descBuilder.append(liWrap.apply(dateText)).append(" ");
-                    }
-                }
-
-                // Extract times
-                Element times = blockMeta.selectFirst("[class*='times'], time");
-                if (times != null) {
-                    String timesText = times.text().trim();
-                    if (!timesText.isEmpty()) {
-                        descBuilder.append(liWrap.apply(timesText)).append(" ");
-                    }
-                }
-
-                // Extract location
-                Element location = blockMeta.selectFirst("[class*='location']");
-                if (location != null) {
-                    String locationText = location.text().trim();
-                    if (!locationText.isEmpty()) {
-                        descBuilder.append(liWrap.apply(locationText)).append(" ");
-                    }
-                }
-
-                // Extract region
-                Element region = blockMeta.selectFirst("[class*='region']");
-                if (region != null) {
-                    String regionText = region.text().trim();
-                    if (!regionText.isEmpty()) {
-                        descBuilder.append(liWrap.apply(regionText));
-                    }
-                }
-
-                description = descBuilder.toString().trim();
-            }
-
-            // Fallback: try traditional description selectors
-            if (description.isEmpty()) {
-                Element descElement = eventCard.selectFirst("p, [class*='description'], [class*='excerpt']");
-                if (descElement != null) {
-                    description = descElement.text().trim();
-                }
-            }
-
-            Element descElement = eventCard.selectFirst("p, [class*='description'], [class*='excerpt']");
-            if (descElement != null) {
-                description = descElement.text().trim();
-            }
-
-            // Extract image from the event card
-            String imageUrl = "";
-            Element imgElement = eventCard.selectFirst("img[src]");
-            if (imgElement != null) {
-                String src = imgElement.attr("abs:src");
-                if (!src.contains("icon") && !src.contains("logo") && src.length() > 20) {
-                    imageUrl = src;
-                }
-            }
-
-            // Create full title with date
-            String fullTitle = title;
-            if (!dateStr.isEmpty()) {
-                fullTitle = title + " (" + dateStr + ")";
-            }
+            String dateStr = extractDate(eventCard);
+            String description = extractDescription(eventCard);
+            String imageUrl = extractImageUrl(eventCard);
+            String fullTitle = buildFullTitle(title, dateStr);
 
             return new EventItem(id, eventUri, fullTitle, description, eventUri, imageUrl, dateStr);
 
         } catch (Exception e) {
-            if (DEBUG_MODE) {
-                logger.trace("Error parsing link: {}", e.getMessage(), e);
-            }
+            logDebug("Error parsing link: {}", e.getMessage(), e);
             return null;
+        }
+    }
+
+    private int extractEventId(String eventUri) {
+        final List<String> strings = Splitter.on("/").omitEmptyStrings().splitToList(eventUri);
+        final String lastElement = strings.get(strings.size() - 1);
+        return getEventId(lastElement);
+    }
+
+    private Element findEventCardContainer(Element linkElement) {
+        Element eventCard = linkElement;
+        for (int i = 0; i < 10; i++) {
+            Element parent = eventCard.parent();
+            if (parent == null) break;
+
+            if (isEventCardContainer(parent)) {
+                return parent;
+            }
+            eventCard = parent;
+        }
+        return eventCard;
+    }
+
+    private boolean isEventCardContainer(Element element) {
+        String className = element.className().toLowerCase();
+        String tagName = element.tagName().toLowerCase();
+
+        return className.contains("event") || className.contains("card") ||
+                className.contains("result") || className.contains("listing") ||
+                tagName.equals("article") || className.contains("item");
+    }
+
+    private String extractTitle(Element eventCard) {
+        String title = extractTitleFromHeadings(eventCard);
+
+        if (title.length() < 3) {
+            title = extractTitleFromClass(eventCard);
+        }
+
+        if (title.length() < 3) {
+            title = extractTitleFromLinks(eventCard);
+        }
+
+        if (title.length() < 3) {
+            title = extractTitleFromImage(eventCard);
+        }
+
+        if (title.length() < 3) {
+            title = extractTitleFromAriaLabel(eventCard);
+        }
+
+        if (title.length() < 3) {
+            logEventCardDebugInfo(eventCard);
+            return null;
+        }
+
+        return title;
+    }
+
+    private String extractTitleFromHeadings(Element eventCard) {
+        Element heading = eventCard.selectFirst("h1, h2, h3, h4, h5, h6");
+        return heading != null ? heading.text().trim() : "";
+    }
+
+    private String extractTitleFromClass(Element eventCard) {
+        Element titleElem = eventCard.selectFirst("[class*='title'], [class*='Title'], [class*='name'], [class*='Name']");
+        return titleElem != null ? titleElem.text().trim() : "";
+    }
+
+    private String extractTitleFromLinks(Element eventCard) {
+        Elements links = eventCard.select("a[href*='/event/']");
+        for (Element link : links) {
+            String linkText = link.text().trim();
+            if (linkText.length() > 3) {
+                return linkText;
+            }
+        }
+        return "";
+    }
+
+    private String extractTitleFromImage(Element eventCard) {
+        Element img = eventCard.selectFirst("img[alt]");
+        if (img != null) {
+            String alt = img.attr("alt").trim();
+            if (alt.length() > 3) {
+                return alt;
+            }
+        }
+        return "";
+    }
+
+    private String extractTitleFromAriaLabel(Element eventCard) {
+        Elements linksWithAria = eventCard.select("a[aria-label]");
+        for (Element link : linksWithAria) {
+            String ariaLabel = link.attr("aria-label").trim();
+            if (ariaLabel.length() > 3) {
+                return ariaLabel;
+            }
+        }
+        return "";
+    }
+
+    private void logEventCardDebugInfo(Element eventCard) {
+        if (logger.isTraceEnabled()) {
+            logger.trace("Could not extract title");
+            String eventCardHtml = eventCard.html();
+            logger.trace("Event card HTML (first 300 chars): {}",
+                    eventCardHtml.substring(0, Math.min(300, eventCardHtml.length())));
+        }
+    }
+
+    private String extractDate(Element eventCard) {
+        Element dateElement = eventCard.selectFirst("time, [class*='date'], [class*='Date']");
+        return dateElement != null ? dateElement.text().trim() : "";
+    }
+
+    private String extractDescription(Element eventCard) {
+        String description = extractDescriptionFromBlockMeta(eventCard);
+
+        if (description.isEmpty()) {
+            description = extractDescriptionFromFallback(eventCard);
+        }
+
+        return description;
+    }
+
+    private String extractDescriptionFromBlockMeta(Element eventCard) {
+        Element blockMeta = eventCard.selectFirst("div.block-meta, [class*='block-meta']");
+        if (blockMeta == null) {
+            return "";
+        }
+
+        StringBuilder descBuilder = new StringBuilder();
+        UnaryOperator<String> liWrap = str -> "<br/>" + str;
+
+        appendTextIfPresent(descBuilder, blockMeta, "[class*='dateInfo'], [class*='date-info']", liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, "[class*='times'], time", liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, "[class*='location']", liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, "[class*='region']", liWrap);
+
+        return descBuilder.toString().trim();
+    }
+
+    private void appendTextIfPresent(StringBuilder builder, Element parent, String selector, UnaryOperator<String> wrapper) {
+        Element element = parent.selectFirst(selector);
+        if (element != null) {
+            String text = element.text().trim();
+            if (!text.isEmpty()) {
+                builder.append(wrapper.apply(text));
+                if (!selector.contains("region")) {
+                    builder.append(" ");
+                }
+            }
+        }
+    }
+
+    private String extractDescriptionFromFallback(Element eventCard) {
+        Element descElement = eventCard.selectFirst("p, [class*='description'], [class*='excerpt']");
+        return descElement != null ? descElement.text().trim() : "";
+    }
+
+    private String extractImageUrl(Element eventCard) {
+        Element imgElement = eventCard.selectFirst("img[src]");
+        if (imgElement != null) {
+            String src = imgElement.attr("abs:src");
+            if (!src.contains("icon") && !src.contains("logo") && src.length() > 20) {
+                return src;
+            }
+        }
+        return "";
+    }
+
+    private String buildFullTitle(String title, String dateStr) {
+        if (!dateStr.isEmpty()) {
+            return title + " (" + dateStr + ")";
+        }
+        return title;
+    }
+
+    private void logDebug(String message, Object... args) {
+        if (DEBUG_MODE) {
+            logger.debug(message, args);
         }
     }
 
