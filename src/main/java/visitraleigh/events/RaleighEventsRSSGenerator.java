@@ -13,6 +13,8 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -35,6 +37,8 @@ import org.openqa.selenium.support.ui.WebDriverWait;
  */
 public class RaleighEventsRSSGenerator {
 
+    private static final Logger logger = LoggerFactory.getLogger(RaleighEventsRSSGenerator.class);
+
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
     private static final boolean DEBUG_MODE = false;
     private static final int DEFAULT_NUM_PAGES = 10;
@@ -50,8 +54,12 @@ public class RaleighEventsRSSGenerator {
     }
 
     public static void main(String[] args) {
+        // Bridge Java Util Logging to SLF4J for Selenium
+        org.slf4j.bridge.SLF4JBridgeHandler.removeHandlersForRootLogger();
+        org.slf4j.bridge.SLF4JBridgeHandler.install();
+
         if (args.length < 1) {
-            System.err.println("Usage: java visitraleigh.events.RaleighEventsRSSGenerator <rss-file-path>");
+            logger.error("Usage: java visitraleigh.events.RaleighEventsRSSGenerator <rss-file-path>");
             System.exit(1);
         }
 
@@ -62,10 +70,9 @@ public class RaleighEventsRSSGenerator {
             generator.loadExistingFeed();
             generator.scrapeEvents();
             generator.generateRSSFeed();
-            System.out.println("RSS feed generated successfully with " + generator.newEvents.size() + " new events");
+            logger.info("RSS feed generated successfully with {} new events", generator.newEvents.size());
         } catch (Exception e) {
-            System.err.println("Error generating RSS feed: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Error generating RSS feed: {}", e.getMessage(), e);
             System.exit(1);
         }
     }
@@ -73,7 +80,7 @@ public class RaleighEventsRSSGenerator {
     private void loadExistingFeed() throws Exception {
         File rssFile = new File(rssFilePath);
         if (!rssFile.exists()) {
-            System.out.println("No existing RSS feed found. Starting fresh.");
+            logger.info("No existing RSS feed found. Starting fresh.");
             return;
         }
 
@@ -87,7 +94,7 @@ public class RaleighEventsRSSGenerator {
             existingGuids.add(guid);
         }
 
-        System.out.println("Loaded " + existingGuids.size() + " existing event GUIDs");
+        logger.info("Loaded {} existing event GUIDs", existingGuids.size());
     }
 
     private void scrapeEvents() throws Exception {
@@ -106,17 +113,17 @@ public class RaleighEventsRSSGenerator {
             int numPages = 1;
             while (page <= numPages) {
                 String url = BASE_URL + "?page=" + page;
-                System.out.println("\nScraping " + url);
+                logger.info("Scraping {}", url);
 
                 long startTime = System.currentTimeMillis();
                 driver.get(url);
-                System.out.print("Waiting for page to load...");
+                logger.debug("Waiting for page to load...");
 
                 // Wait for a specific element to be present (most reliable)
                 WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
                 wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("li.arrow.arrow-next.arrow-double")));
 
-                System.out.println("page loaded in " + (System.currentTimeMillis() - startTime) + "ms");
+                logger.debug("Page loaded in {}ms", (System.currentTimeMillis() - startTime));
 
                 String pageSource = driver.getPageSource();
 
@@ -125,19 +132,19 @@ public class RaleighEventsRSSGenerator {
                     try (PrintWriter out = new PrintWriter(new FileWriter("debug-page.html"))) {
                         out.println(pageSource);
                     }
-                    System.out.println("Debug: Page source saved to debug-page.html");
-                    System.out.println("Debug: Page source length: " + pageSource.length() + " characters");
+                    logger.debug("Debug: Page source saved to debug-page.html");
+                    logger.debug("Debug: Page source length: {} characters", pageSource.length());
                 }
 
                 Document doc = Jsoup.parse(pageSource, url);
                 if (page == 1) {
                     numPages = getNumPages(doc, DEFAULT_NUM_PAGES);
-                    System.out.println("There are " + numPages + " pages to parse.");
+                    logger.info("There are {} pages to parse.", numPages);
                 }
 
                 // Try to find all links that might be events (singular /event/)
                 Elements allLinks = doc.select("a[href*='/event/']");
-                System.out.println("Found " + allLinks.size() + " links containing '/event/'");
+                logger.debug("Found {} links containing '/event/'", allLinks.size());
 
                 // Filter to actual event links (not listing pages)
                 Set<String> processedUrls = new HashSet<>();
@@ -166,15 +173,16 @@ public class RaleighEventsRSSGenerator {
 
                     if (event != null) {
                         if (!existingGuids.add(event.guid)) {
-                            System.out.println("\tFound existing event: " + event.title);
+                            logger.debug("Found existing event: {}", event.title);
                         } else {
                             newEvents.add(event);
-                            System.out.println("\tFound new event: " + event.title);
+                            logger.debug("Found new event: {}", event.title);
                         }
                     }
                 }
 
-                System.out.println("Successfully parsed " + newEvents.size() + " total events so far (page " + page + " of " + numPages + ")");
+                logger.info("Successfully parsed {} total events so far (page {} of {})",
+                        newEvents.size(), page, numPages);
 
                 page++;
             }
@@ -211,7 +219,7 @@ public class RaleighEventsRSSGenerator {
         try {
             return Integer.parseInt(tokens[1]);
         } catch (NumberFormatException e) {
-            e.printStackTrace();
+            logger.error("Failed to parse number of pages", e);
             return defaultValue;
         }
     }
@@ -221,7 +229,7 @@ public class RaleighEventsRSSGenerator {
             String eventUri = linkElement.attr("abs:href");
 
             if (DEBUG_MODE) {
-                System.out.println("  - Parsing link: " + eventUri);
+                logger.trace("Parsing link: {}", eventUri);
             }
 
             int id = -1;
@@ -230,7 +238,7 @@ public class RaleighEventsRSSGenerator {
             try {
                 id = Integer.parseInt(lastElement);
             } catch (NumberFormatException e) {
-                System.err.println("Unable to parse value as int: " + lastElement);
+                logger.error("Unable to parse value as int: {}", lastElement);
             }
 
             // Find the event card container - go up the tree to find it
@@ -306,15 +314,15 @@ public class RaleighEventsRSSGenerator {
 
             if (title.length() < 3) {
                 if (DEBUG_MODE) {
-                    System.out.println("  x Could not extract title");
-                    System.out.println("    Event card HTML (first 300 chars): " +
+                    logger.trace("Could not extract title");
+                    logger.trace("Event card HTML (first 300 chars): {}",
                             eventCard.html().substring(0, Math.min(300, eventCard.html().length())));
                 }
                 return null;
             }
 
             if (DEBUG_MODE) {
-                System.out.println("  + Title: " + title);
+                logger.trace("Title: {}", title);
             }
 
             // Look for date information in the event card
@@ -405,7 +413,7 @@ public class RaleighEventsRSSGenerator {
 
         } catch (Exception e) {
             if (DEBUG_MODE) {
-                System.err.println("  x Error parsing link: " + e.getMessage());
+                logger.trace("Error parsing link: {}", e.getMessage(), e);
             }
             return null;
         }
@@ -459,7 +467,7 @@ public class RaleighEventsRSSGenerator {
         StreamResult result = new StreamResult(new File(rssFilePath));
         transformer.transform(source, result);
 
-        System.out.println("\nRSS feed written to: " + rssFilePath);
+        logger.info("RSS feed written to: {}", rssFilePath);
     }
 
     private void removeWhitespaceNodes(org.w3c.dom.Node node) {
