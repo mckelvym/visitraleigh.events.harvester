@@ -45,7 +45,7 @@ import org.xml.sax.SAXException;
  */
 public class RaleighEventsRSSGenerator {
 
-    private static final Logger logger = LoggerFactory.getLogger(RaleighEventsRSSGenerator.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RaleighEventsRSSGenerator.class);
 
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
     private static final boolean DEBUG_MODE = false;
@@ -68,7 +68,7 @@ public class RaleighEventsRSSGenerator {
         org.slf4j.bridge.SLF4JBridgeHandler.install();
 
         if (args.length < 1) {
-            logger.error("Usage: java visitraleigh.events.RaleighEventsRSSGenerator <rss-file-path>");
+            LOG.error("<rss-file-path> is missing");
             System.exit(1);
         }
 
@@ -79,17 +79,19 @@ public class RaleighEventsRSSGenerator {
             generator.loadExistingFeed();
             generator.scrapeEvents();
             generator.generateRSSFeed();
-            logger.info("RSS feed generated successfully with {} new events", generator.newEvents.size());
+            LOG.info("RSS feed generated successfully with {} new events",
+                    generator.newEvents.size());
         } catch (Exception e) {
-            logger.error("Error generating RSS feed: {}", e.getMessage(), e);
+            LOG.error("Error generating RSS feed: {}", e.getMessage(), e);
             System.exit(1);
         }
     }
 
-    private void loadExistingFeed() throws ParserConfigurationException, IOException, SAXException {
+    private void loadExistingFeed()
+            throws ParserConfigurationException, IOException, SAXException {
         File rssFile = new File(rssFilePath);
         if (!rssFile.exists()) {
-            logger.info("No existing RSS feed found. Starting fresh.");
+            LOG.info("No existing RSS feed found. Starting fresh.");
             return;
         }
 
@@ -104,10 +106,11 @@ public class RaleighEventsRSSGenerator {
             existingGuids.add(guid);
         }
 
-        logger.info("Loaded {} existing event GUIDs", existingGuids.size());
+        LOG.info("Loaded {} existing event GUIDs", existingGuids.size());
     }
 
-    private static DocumentBuilderFactory getDocumentBuilderFactory() throws ParserConfigurationException {
+    private static DocumentBuilderFactory getDocumentBuilderFactory()
+            throws ParserConfigurationException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         // Disable external entity processing
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -119,35 +122,37 @@ public class RaleighEventsRSSGenerator {
         return factory;
     }
 
-    private void scrapeEvents() throws IOException {
+    private void scrapeEvents()
+            throws IOException {
         WebDriver driver = getWebDriver();
 
         try {
             int numPages = scrapeAllPages(driver);
-            logger.info("Successfully parsed {} total events across {} pages",
+            LOG.info("Successfully parsed {} total events across {} pages",
                     newEvents.size(), numPages);
         } finally {
             driver.quit();
         }
     }
 
-    private int scrapeAllPages(WebDriver driver) throws IOException {
+    private int scrapeAllPages(WebDriver driver)
+            throws IOException {
         int page = 1;
         int numPages = 1;
 
         while (page <= numPages) {
             String url = BASE_URL + "?page=" + page;
-            logger.info("Scraping {}", url);
+            LOG.info("Scraping {}", url);
 
             Document doc = loadAndParsePage(driver, url, page);
 
             if (page == 1) {
                 numPages = getNumPages(doc);
-                logger.info("There are {} pages to parse.", numPages);
+                LOG.info("There are {} pages to parse.", numPages);
             }
 
             scrapeEventsFromPage(doc);
-            logger.info("Successfully parsed {} total events so far (page {} of {})",
+            LOG.info("Successfully parsed {} total events so far (page {} of {})",
                     newEvents.size(), page, numPages);
 
             page++;
@@ -156,16 +161,17 @@ public class RaleighEventsRSSGenerator {
         return numPages;
     }
 
-    private Document loadAndParsePage(WebDriver driver, String url, int page) throws IOException {
-        long startTime = System.currentTimeMillis();
+    private Document loadAndParsePage(WebDriver driver, String url, int page)
+            throws IOException {
+        final long startTime = System.currentTimeMillis();
         driver.get(url);
-        logger.debug("Waiting for page to load...");
+        LOG.debug("Waiting for page to load...");
 
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
         wait.until(ExpectedConditions.presenceOfElementLocated(
                 By.cssSelector(LAST_PAGE_LINK_ELEMENT)));
 
-        logger.debug("Page loaded in {}ms", (System.currentTimeMillis() - startTime));
+        LOG.debug("Page loaded in {}ms", (System.currentTimeMillis() - startTime));
 
         String pageSource = driver.getPageSource();
         saveDebugPageIfNeeded(pageSource, page);
@@ -173,20 +179,21 @@ public class RaleighEventsRSSGenerator {
         return Jsoup.parse(requireNonNull(pageSource), url);
     }
 
-    private void saveDebugPageIfNeeded(String pageSource, int page) throws IOException {
+    private void saveDebugPageIfNeeded(String pageSource, int page)
+            throws IOException {
         if (DEBUG_MODE && page == 1) {
             try (PrintWriter out = new PrintWriter(new FileWriter("debug-page.html"))) {
                 out.println(pageSource);
             }
-            logger.debug("Debug: Page source saved to debug-page.html");
-            logger.debug("Debug: Page source length: {} characters",
+            LOG.debug("Debug: Page source saved to debug-page.html");
+            LOG.debug("Debug: Page source length: {} characters",
                     pageSource != null ? pageSource.length() : 0);
         }
     }
 
     private void scrapeEventsFromPage(Document doc) {
         Elements allLinks = doc.select("a[href*='/event/']");
-        logger.debug("Found {} links containing '/event/'", allLinks.size());
+        LOG.debug("Found {} links containing '/event/'", allLinks.size());
 
         Set<String> processedUrls = new HashSet<>();
 
@@ -217,10 +224,10 @@ public class RaleighEventsRSSGenerator {
 
         if (event != null) {
             if (!existingGuids.add(event.guid)) {
-                logger.debug("Found existing event: {}", event.title);
+                LOG.debug("Found existing event: {}", event.title);
             } else {
                 newEvents.add(event);
-                logger.debug("Found new event: {}", event.title);
+                LOG.debug("Found new event: {}", event.title);
             }
         }
     }
@@ -232,7 +239,8 @@ public class RaleighEventsRSSGenerator {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
         options.addArguments("--window-size=1920,1080");
-        options.addArguments("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        options.addArguments("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
         return new ChromeDriver(options);
     }
@@ -265,7 +273,7 @@ public class RaleighEventsRSSGenerator {
         try {
             return Integer.parseInt(tokens[1]);
         } catch (NumberFormatException e) {
-            logger.error("Failed to parse number of pages", e);
+            LOG.error("Failed to parse number of pages", e);
             return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
         }
     }
@@ -308,7 +316,9 @@ public class RaleighEventsRSSGenerator {
         Element eventCard = linkElement;
         for (int i = 0; i < 10; i++) {
             Element parent = eventCard.parent();
-            if (parent == null) break;
+            if (parent == null) {
+                break;
+            }
 
             if (isEventCardContainer(parent)) {
                 return parent;
@@ -360,7 +370,8 @@ public class RaleighEventsRSSGenerator {
     }
 
     private String extractTitleFromClass(Element eventCard) {
-        Element titleElem = eventCard.selectFirst("[class*='title'], [class*='Title'], [class*='name'], [class*='Name']");
+        Element titleElem = eventCard.selectFirst("[class*='title'], [class*='Title'], " +
+                "[class*='name'], [class*='Name']");
         return titleElem != null ? titleElem.text().trim() : "";
     }
 
@@ -398,10 +409,10 @@ public class RaleighEventsRSSGenerator {
     }
 
     private void logEventCardDebugInfo(Element eventCard) {
-        if (logger.isTraceEnabled()) {
-            logger.trace("Could not extract title");
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("Could not extract title");
             String eventCardHtml = eventCard.html();
-            logger.trace("Event card HTML (first 300 chars): {}",
+            LOG.trace("Event card HTML (first 300 chars): {}",
                     eventCardHtml.substring(0, Math.min(300, eventCardHtml.length())));
         }
     }
@@ -430,7 +441,8 @@ public class RaleighEventsRSSGenerator {
         StringBuilder descBuilder = new StringBuilder();
         UnaryOperator<String> liWrap = str -> "<br/>" + str;
 
-        appendTextIfPresent(descBuilder, blockMeta, "[class*='dateInfo'], [class*='date-info']", liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, "[class*='dateInfo'], [class*='date-info']",
+                liWrap);
         appendTextIfPresent(descBuilder, blockMeta, "[class*='times'], time", liWrap);
         appendTextIfPresent(descBuilder, blockMeta, "[class*='location']", liWrap);
         appendTextIfPresent(descBuilder, blockMeta, "[class*='region']", liWrap);
@@ -438,7 +450,8 @@ public class RaleighEventsRSSGenerator {
         return descBuilder.toString().trim();
     }
 
-    private void appendTextIfPresent(StringBuilder builder, Element parent, String selector, UnaryOperator<String> wrapper) {
+    private void appendTextIfPresent(StringBuilder builder, Element parent, String selector,
+                                     UnaryOperator<String> wrapper) {
         Element element = parent.selectFirst(selector);
         if (element != null) {
             String text = element.text().trim();
@@ -452,7 +465,8 @@ public class RaleighEventsRSSGenerator {
     }
 
     private String extractDescriptionFromFallback(Element eventCard) {
-        Element descElement = eventCard.selectFirst("p, [class*='description'], [class*='excerpt']");
+        Element descElement = eventCard.selectFirst("p, [class*='description'], " +
+                "[class*='excerpt']");
         return descElement != null ? descElement.text().trim() : "";
     }
 
@@ -476,7 +490,7 @@ public class RaleighEventsRSSGenerator {
 
     private void logDebug(String message, Object... args) {
         if (DEBUG_MODE) {
-            logger.debug(message, args);
+            LOG.debug(message, args);
         }
     }
 
@@ -485,12 +499,14 @@ public class RaleighEventsRSSGenerator {
         try {
             id = Integer.parseInt(lastElement);
         } catch (NumberFormatException e) {
-            logger.error("Unable to parse value as int: {}", lastElement);
+            LOG.error("Unable to parse value as int: {}", lastElement);
         }
         return id;
     }
 
-    private void generateRSSFeed() throws ParserConfigurationException, TransformerException, IOException, SAXException {
+    private void generateRSSFeed()
+            throws ParserConfigurationException, TransformerException,
+            IOException, SAXException {
         DocumentBuilderFactory factory = getDocumentBuilderFactory();
         factory.setIgnoringElementContentWhitespace(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -538,7 +554,7 @@ public class RaleighEventsRSSGenerator {
         StreamResult result = new StreamResult(new File(rssFilePath));
         transformer.transform(source, result);
 
-        logger.info("RSS feed written to: {}", rssFilePath);
+        LOG.info("RSS feed written to: {}", rssFilePath);
     }
 
     private static TransformerFactory getTransformerFactory() {
@@ -570,7 +586,8 @@ public class RaleighEventsRSSGenerator {
         }
     }
 
-    private void addEventItem(org.w3c.dom.Document doc, org.w3c.dom.Element channel, EventItem event) {
+    private void addEventItem(org.w3c.dom.Document doc, org.w3c.dom.Element channel,
+                              EventItem event) {
         org.w3c.dom.Element item = doc.createElement("item");
         channel.appendChild(item);
 
@@ -596,7 +613,8 @@ public class RaleighEventsRSSGenerator {
         parent.appendChild(element);
     }
 
-    private record EventItem(int id, String guid, String title, String description, String link, String imageUrl,
+    private record EventItem(int id, String guid, String title, String description, String link,
+                             String imageUrl,
                              String dateStr) implements Comparable<EventItem> {
         @Override
         public int compareTo(EventItem o) {
