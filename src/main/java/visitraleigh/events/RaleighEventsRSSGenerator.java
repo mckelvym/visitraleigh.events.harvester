@@ -3,8 +3,29 @@ package visitraleigh.events;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.base.Splitter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.time.Duration;
-import java.util.function.Function;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.UnaryOperator;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -13,24 +34,11 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.PrintWriter;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xml.sax.SAXException;
 
 /**
  * RSS Feed Generator for Visit Raleigh Events
@@ -77,14 +85,15 @@ public class RaleighEventsRSSGenerator {
         }
     }
 
-    private void loadExistingFeed() throws Exception {
+    private void loadExistingFeed() throws ParserConfigurationException, IOException, SAXException {
         File rssFile = new File(rssFilePath);
         if (!rssFile.exists()) {
             logger.info("No existing RSS feed found. Starting fresh.");
             return;
         }
 
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory factory = getDocumentBuilderFactory();
+
         DocumentBuilder builder = factory.newDocumentBuilder();
         org.w3c.dom.Document doc = builder.parse(rssFile);
 
@@ -97,16 +106,20 @@ public class RaleighEventsRSSGenerator {
         logger.info("Loaded {} existing event GUIDs", existingGuids.size());
     }
 
-    private void scrapeEvents() throws Exception {
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless=new");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080");
-        options.addArguments("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+    private static DocumentBuilderFactory getDocumentBuilderFactory() throws ParserConfigurationException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        // Disable external entity processing
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
+        return factory;
+    }
 
-        WebDriver driver = new ChromeDriver(options);
+    private void scrapeEvents() throws IOException {
+        WebDriver driver = getWebDriver();
 
         try {
             int page = 1;
@@ -133,12 +146,12 @@ public class RaleighEventsRSSGenerator {
                         out.println(pageSource);
                     }
                     logger.debug("Debug: Page source saved to debug-page.html");
-                    logger.debug("Debug: Page source length: {} characters", pageSource.length());
+                    logger.debug("Debug: Page source length: {} characters", pageSource != null ? pageSource.length() : 0);
                 }
 
-                Document doc = Jsoup.parse(pageSource, url);
+                Document doc = Jsoup.parse(requireNonNull(pageSource), url);
                 if (page == 1) {
-                    numPages = getNumPages(doc, DEFAULT_NUM_PAGES);
+                    numPages = getNumPages(doc);
                     logger.info("There are {} pages to parse.", numPages);
                 }
 
@@ -191,36 +204,48 @@ public class RaleighEventsRSSGenerator {
         }
     }
 
-    private int getNumPages(Document doc, int defaultValue) {
+    private static WebDriver getWebDriver() {
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless=new");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080");
+        options.addArguments("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+        return new ChromeDriver(options);
+    }
+
+    private int getNumPages(Document doc) {
         final Elements doubleArrow = doc.select("li.arrow.arrow-next.arrow-double");
-        if (doubleArrow.size() < 1) {
-            return defaultValue;
+        if (doubleArrow.isEmpty()) {
+            return DEFAULT_NUM_PAGES;
         }
         final Element first = doubleArrow.first();
         if (first == null) {
-            return defaultValue;
+            return DEFAULT_NUM_PAGES;
         }
         final Elements children = first.children();
-        if (children.size() < 1) {
-            return defaultValue;
+        if (children.isEmpty()) {
+            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
         }
         final Element firstChild = children.first();
         if (firstChild == null) {
-            return defaultValue;
+            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
         }
         final String href = firstChild.attr("href");
-        if (href == null) {
-            return defaultValue;
+        if (href.isEmpty()) {
+            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
         }
         final String[] tokens = href.split("=");
         if (tokens.length < 2) {
-            return defaultValue;
+            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
         }
         try {
             return Integer.parseInt(tokens[1]);
         } catch (NumberFormatException e) {
             logger.error("Failed to parse number of pages", e);
-            return defaultValue;
+            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
         }
     }
 
@@ -232,14 +257,9 @@ public class RaleighEventsRSSGenerator {
                 logger.trace("Parsing link: {}", eventUri);
             }
 
-            int id = -1;
             final List<String> strings = Splitter.on("/").omitEmptyStrings().splitToList(eventUri);
             final String lastElement = strings.get(strings.size() - 1);
-            try {
-                id = Integer.parseInt(lastElement);
-            } catch (NumberFormatException e) {
-                logger.error("Unable to parse value as int: {}", lastElement);
-            }
+            int id = getEventId(lastElement);
 
             // Find the event card container - go up the tree to find it
             Element eventCard = linkElement;
@@ -313,10 +333,11 @@ public class RaleighEventsRSSGenerator {
             }
 
             if (title.length() < 3) {
-                if (DEBUG_MODE) {
+                if (logger.isTraceEnabled()) {
                     logger.trace("Could not extract title");
+                    String eventCardHtml = eventCard.html();
                     logger.trace("Event card HTML (first 300 chars): {}",
-                            eventCard.html().substring(0, Math.min(300, eventCard.html().length())));
+                            eventCardHtml.substring(0, Math.min(300, eventCardHtml.length())));
                 }
                 return null;
             }
@@ -339,7 +360,7 @@ public class RaleighEventsRSSGenerator {
             Element blockMeta = eventCard.selectFirst("div.block-meta, [class*='block-meta']");
             if (blockMeta != null) {
                 StringBuilder descBuilder = new StringBuilder();
-                Function<String, String> liWrap = str -> "<br/>" + str;
+                UnaryOperator<String> liWrap = str -> "<br/>" + str;
 
                 // Extract date info
                 Element dateInfo = blockMeta.selectFirst("[class*='dateInfo'], [class*='date-info']");
@@ -419,8 +440,18 @@ public class RaleighEventsRSSGenerator {
         }
     }
 
-    private void generateRSSFeed() throws Exception {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    private static int getEventId(String lastElement) {
+        int id = -1;
+        try {
+            id = Integer.parseInt(lastElement);
+        } catch (NumberFormatException e) {
+            logger.error("Unable to parse value as int: {}", lastElement);
+        }
+        return id;
+    }
+
+    private void generateRSSFeed() throws ParserConfigurationException, TransformerException, IOException, SAXException {
+        DocumentBuilderFactory factory = getDocumentBuilderFactory();
         factory.setIgnoringElementContentWhitespace(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
         org.w3c.dom.Document doc = builder.newDocument();
@@ -457,7 +488,7 @@ public class RaleighEventsRSSGenerator {
             }
         }
 
-        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        TransformerFactory transformerFactory = getTransformerFactory();
         Transformer transformer = transformerFactory.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
         transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
@@ -468,6 +499,14 @@ public class RaleighEventsRSSGenerator {
         transformer.transform(source, result);
 
         logger.info("RSS feed written to: {}", rssFilePath);
+    }
+
+    private static TransformerFactory getTransformerFactory() {
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        // Disable external entity processing
+        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        return transformerFactory;
     }
 
     private void removeWhitespaceNodes(org.w3c.dom.Node node) {
@@ -518,7 +557,7 @@ public class RaleighEventsRSSGenerator {
     }
 
     private record EventItem(int id, String guid, String title, String description, String link, String imageUrl,
-                             String dateStr) implements Comparable<EventItem>{
+                             String dateStr) implements Comparable<EventItem> {
         @Override
         public int compareTo(EventItem o) {
             return Integer.compare(this.id, o.id);
