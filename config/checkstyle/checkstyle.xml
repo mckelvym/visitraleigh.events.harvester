@@ -67,6 +67,15 @@
             <property name="max" value="7"/>
         </module>
 
+        <!-- Complexity Checks (aligned with SonarQube thresholds) -->
+        <module name="CyclomaticComplexity">
+            <property name="max" value="15"/>
+            <property name="switchBlockAsSingleDecisionPoint" value="true"/>
+        </module>
+        <module name="NPathComplexity">
+            <property name="max" value="200"/>
+        </module>
+
         <!-- Checks for whitespace -->
         <module name="EmptyForIteratorPad"/>
         <module name="GenericWhitespace"/>

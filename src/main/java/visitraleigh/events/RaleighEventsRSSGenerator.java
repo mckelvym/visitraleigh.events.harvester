@@ -246,35 +246,50 @@ public class RaleighEventsRSSGenerator {
     }
 
     private int getNumPages(Document doc) {
-        final Elements doubleArrow = doc.select(LAST_PAGE_LINK_ELEMENT);
+        Elements doubleArrow = doc.select(LAST_PAGE_LINK_ELEMENT);
         if (doubleArrow.isEmpty()) {
             return DEFAULT_NUM_PAGES;
         }
-        final Element first = doubleArrow.first();
-        if (first == null) {
+
+        String href = extractHrefFromPaginationElement(doubleArrow);
+        if (href == null) {
             return DEFAULT_NUM_PAGES;
         }
-        final Elements children = first.children();
+
+        return parsePageNumberFromHref(href);
+    }
+
+    private String extractHrefFromPaginationElement(Elements doubleArrow) {
+        Element first = doubleArrow.first();
+        if (first == null) {
+            return null;
+        }
+
+        Elements children = first.children();
         if (children.isEmpty()) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+            return null;
         }
-        final Element firstChild = children.first();
+
+        Element firstChild = children.first();
         if (firstChild == null) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+            return null;
         }
-        final String href = firstChild.attr("href");
-        if (href.isEmpty()) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
-        }
-        final String[] tokens = href.split("=");
+
+        String href = firstChild.attr("href");
+        return href.isEmpty() ? null : href;
+    }
+
+    private int parsePageNumberFromHref(String href) {
+        String[] tokens = href.split("=");
         if (tokens.length < 2) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+            return DEFAULT_NUM_PAGES;
         }
+
         try {
             return Integer.parseInt(tokens[1]);
         } catch (NumberFormatException e) {
             LOG.error("Failed to parse number of pages", e);
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+            return DEFAULT_NUM_PAGES;
         }
     }
 
