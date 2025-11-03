@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import javax.xml.XMLConstants;
@@ -559,6 +560,8 @@ public class RaleighEventsRSSGenerator {
             }
         }
 
+        logFeedStatistics(doc);
+
         TransformerFactory transformerFactory = getTransformerFactory();
         Transformer transformer = transformerFactory.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
@@ -570,6 +573,60 @@ public class RaleighEventsRSSGenerator {
         transformer.transform(source, result);
 
         LOG.info("RSS feed written to: {}", rssFilePath);
+    }
+
+    private void logFeedStatistics(org.w3c.dom.Document doc) {
+        org.w3c.dom.NodeList items = doc.getElementsByTagName("item");
+        int totalEvents = items.getLength();
+
+        if (totalEvents == 0) {
+            LOG.info("RSS feed contains 0 events");
+            return;
+        }
+
+        ZonedDateTime oldestDate = findLastPubDate(items).orElse(null);
+        logEventStatistics(totalEvents, oldestDate);
+    }
+
+    private Optional<ZonedDateTime> findLastPubDate(org.w3c.dom.NodeList items) {
+        DateTimeFormatter formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
+
+        if (items.getLength() <= 0) {
+            return Optional.empty();
+        }
+
+        org.w3c.dom.Node item = items.item(items.getLength() - 1);
+        return Optional.ofNullable(extractPubDateFromItem(item, formatter));
+    }
+
+    private ZonedDateTime extractPubDateFromItem(org.w3c.dom.Node item,
+                                                  DateTimeFormatter formatter) {
+        org.w3c.dom.NodeList children = item.getChildNodes();
+
+        for (int j = 0; j < children.getLength(); j++) {
+            org.w3c.dom.Node child = children.item(j);
+            if ("pubDate".equals(child.getNodeName())) {
+                try {
+                    String pubDateStr = child.getTextContent();
+                    return ZonedDateTime.parse(pubDateStr, formatter);
+                } catch (Exception e) {
+                    LOG.debug("Failed to parse pubDate: {}", child.getTextContent(), e);
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void logEventStatistics(int totalEvents, ZonedDateTime oldestDate) {
+        if (oldestDate != null) {
+            long daysSinceOldest = Duration.between(oldestDate, ZonedDateTime.now()).toDays();
+            LOG.info("RSS feed contains {} total events, oldest entry is {} days old",
+                    totalEvents, daysSinceOldest);
+        } else {
+            LOG.info("RSS feed contains {} total events", totalEvents);
+        }
     }
 
     private static TransformerFactory getTransformerFactory() {
