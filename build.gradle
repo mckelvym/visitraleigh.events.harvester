@@ -1,6 +1,10 @@
+import com.github.spotbugs.snom.SpotBugsTask
+
 plugins {
     id 'java'
     id 'application'
+    id 'checkstyle'
+    id 'com.github.spotbugs' version '6.4.4'
     id 'com.google.cloud.tools.jib' version '3.4.5'
 }
 
@@ -17,14 +21,39 @@ repositories {
 dependencies {
     // JSoup for HTML parsing
     implementation 'org.jsoup:jsoup:1.17.2'
+    // Logging
+    implementation 'org.slf4j:slf4j-api:2.0.17'
+    implementation 'org.slf4j:jul-to-slf4j:2.0.17' // SLF4J-JUL bridge
 
     // Selenium for JavaScript-rendered content
     implementation 'org.seleniumhq.selenium:selenium-java:4.25.0'
     implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.25.0'
+
+    runtimeOnly 'ch.qos.logback:logback-classic:1.5.20'
 }
 
 application {
-    mainClassName = 'RaleighEventsRSSGenerator'
+    mainClassName = 'visitraleigh.events.RaleighEventsRSSGenerator'
+}
+
+// Checkstyle configuration
+checkstyle {
+    toolVersion = '12.1.0'
+    configFile = file("${rootProject.projectDir}/config/checkstyle/checkstyle.xml")
+    maxWarnings = 0
+    maxErrors = 0
+}
+
+// SpotBugs configuration
+spotbugs {
+    ignoreFailures = false
+}
+
+tasks.withType(SpotBugsTask).configureEach {
+    reports {
+        html.required = true
+        xml.required = false
+    }
 }
 
 // Create a fat JAR with all dependencies
@@ -33,7 +62,7 @@ tasks.register('fatJar', Jar) {
     description = 'Create a standalone JAR with all dependencies'
 
     manifest {
-        attributes 'Main-Class': 'RaleighEventsRSSGenerator'
+        attributes 'Main-Class': 'visitraleigh.events.RaleighEventsRSSGenerator'
     }
 
     archiveBaseName.set('raleigh-events-rss-generator')
@@ -56,7 +85,7 @@ run {
     }
 }
 
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.deprecation = true
 }
