@@ -129,7 +129,7 @@ public class RaleighEventsRSSGenerator {
 
         try {
             int numPages = scrapeAllPages(driver);
-            LOG.info("Successfully parsed {} total events across {} pages",
+            LOG.info("Successfully parsed {} new events across {} pages",
                     newEvents.size(), numPages);
         } finally {
             driver.quit();
@@ -153,7 +153,7 @@ public class RaleighEventsRSSGenerator {
             }
 
             scrapeEventsFromPage(doc);
-            LOG.info("Successfully parsed {} total events so far (page {} of {})",
+            LOG.info("Successfully parsed {} new events so far (page {} of {})",
                     newEvents.size(), page, numPages);
 
             page++;
@@ -225,10 +225,10 @@ public class RaleighEventsRSSGenerator {
 
         if (event != null) {
             if (!existingGuids.add(event.guid)) {
-                LOG.debug("Found existing event: {}", event.title);
+                LOG.info("Found existing event: {}", event.title);
             } else {
                 newEvents.add(event);
-                LOG.debug("Found new event: {}", event.title);
+                LOG.info("Found new event: {}", event.title);
             }
         }
     }
