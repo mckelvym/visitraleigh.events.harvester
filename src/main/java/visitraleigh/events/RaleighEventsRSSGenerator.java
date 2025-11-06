@@ -53,6 +53,7 @@ public class RaleighEventsRSSGenerator {
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
     private static final boolean DEBUG_MODE = false;
     private static final int DEFAULT_NUM_PAGES = 10;
+    private static final int DAYS_INTO_FUTURE = getDaysIntoFuture();
     private static final Pattern NUM_PAGES_PATTERN = Pattern.compile("(?:^|[?&])page=(\\d+)");
     private static final String LAST_PAGE_LINK_ELEMENT = "li.arrow.arrow-next.arrow-double";
 
@@ -64,6 +65,23 @@ public class RaleighEventsRSSGenerator {
         this.rssFilePath = requireNonNull(rssFilePath);
         this.existingGuids = new HashSet<>();
         this.newEvents = new ArrayList<>();
+    }
+
+    private static int getDaysIntoFuture() {
+        String envValue = System.getenv("DAYS_INTO_FUTURE");
+        if (envValue != null) {
+            try {
+                return Integer.parseInt(envValue);
+            } catch (NumberFormatException e) {
+                LOG.warn("Invalid DAYS_INTO_FUTURE value: {}, using default of 30", envValue);
+            }
+        }
+        return 30;
+    }
+
+    private static String getEndDate() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        return ZonedDateTime.now().plusDays(DAYS_INTO_FUTURE).format(formatter);
     }
 
     public static void main(String[] args) {
@@ -143,9 +161,10 @@ public class RaleighEventsRSSGenerator {
             throws IOException {
         int page = 1;
         int numPages = 1;
+        String endDate = getEndDate();
 
         while (page <= numPages) {
-            String url = BASE_URL + "?page=" + page;
+            String url = BASE_URL + "?page=" + page + "&endDate=" + endDate;
             LOG.info("Scraping {}", url);
 
             Document doc = loadAndParsePage(driver, url, page);
