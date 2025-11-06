@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Raleigh Events</title>
+        <link>https://www.visitraleigh.com/events/</link>
+        <description>Events in Raleigh, NC</description>
+        <item>
+            <title>Existing Event 1</title>
+            <link>/event/existing-event-1/99001/</link>
+            <guid>/event/existing-event-1/99001/</guid>
+            <description>This is an existing event in the feed</description>
+            <pubDate>Mon, 01 Jan 2025 00:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Existing Event 2</title>
+            <link>/event/existing-event-2/99002/</link>
+            <guid>/event/existing-event-2/99002/</guid>
+            <description>Another existing event</description>
+            <pubDate>Sun, 31 Dec 2024 00:00:00 GMT</pubDate>
+        </item>
+    </channel>
+</rss>
