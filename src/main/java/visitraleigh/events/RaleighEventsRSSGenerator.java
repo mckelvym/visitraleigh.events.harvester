@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -219,7 +220,8 @@ public class RaleighEventsRSSGenerator {
     private void saveDebugPageIfNeeded(String pageSource, int page)
             throws IOException {
         if (DEBUG_MODE && page == 1) {
-            try (PrintWriter out = new PrintWriter(new FileWriter("debug-page.html"))) {
+            try (PrintWriter out = new PrintWriter(new FileWriter("debug-page.html",
+                    StandardCharsets.UTF_8))) {
                 out.println(pageSource);
             }
             LOG.debug("Debug: Page source saved to debug-page.html");
