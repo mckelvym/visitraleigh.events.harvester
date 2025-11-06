@@ -54,6 +54,7 @@ public class RaleighEventsRSSGenerator {
     private static final boolean DEBUG_MODE = false;
     private static final int DEFAULT_NUM_PAGES = 10;
     private static final int DAYS_INTO_FUTURE = getDaysIntoFuture();
+    private static final int DROP_EVENTS_OLDER_THAN_DAYS = getDropEventsOlderThanDays();
     private static final Pattern NUM_PAGES_PATTERN = Pattern.compile("(?:^|[?&])page=(\\d+)");
     private static final String LAST_PAGE_LINK_ELEMENT = "li.arrow.arrow-next.arrow-double";
 
@@ -74,6 +75,19 @@ public class RaleighEventsRSSGenerator {
                 return Integer.parseInt(envValue);
             } catch (NumberFormatException e) {
                 LOG.warn("Invalid DAYS_INTO_FUTURE value: {}, using default of 30", envValue);
+            }
+        }
+        return 30;
+    }
+
+    private static int getDropEventsOlderThanDays() {
+        String envValue = System.getenv("DROP_EVENTS_OLDER_THAN_DAYS");
+        if (envValue != null) {
+            try {
+                return Integer.parseInt(envValue);
+            } catch (NumberFormatException e) {
+                LOG.warn("Invalid DROP_EVENTS_OLDER_THAN_DAYS value: {}, using default of 30",
+                        envValue);
             }
         }
         return 30;
@@ -570,20 +584,31 @@ public class RaleighEventsRSSGenerator {
             addEventItem(doc, channel, event);
         }
 
+        int droppedEventsCount = 0;
         if (new File(rssFilePath).exists()) {
             org.w3c.dom.Document oldDoc = builder.parse(new File(rssFilePath));
             oldDoc.getDocumentElement().normalize();
             org.w3c.dom.NodeList oldItems = oldDoc.getElementsByTagName("item");
 
+            ZonedDateTime cutoffDate = ZonedDateTime.now().minusDays(DROP_EVENTS_OLDER_THAN_DAYS);
+            DateTimeFormatter formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
+
             for (int i = 0; i < oldItems.getLength(); i++) {
                 org.w3c.dom.Node oldItem = oldItems.item(i);
+                ZonedDateTime pubDate = extractPubDateFromItem(oldItem, formatter);
+
+                if (pubDate != null && pubDate.isBefore(cutoffDate)) {
+                    droppedEventsCount++;
+                    continue;
+                }
+
                 org.w3c.dom.Node importedNode = doc.importNode(oldItem, true);
                 removeWhitespaceNodes(importedNode);
                 channel.appendChild(importedNode);
             }
         }
 
-        logFeedStatistics(doc);
+        logFeedStatistics(doc, droppedEventsCount);
 
         TransformerFactory transformerFactory = getTransformerFactory();
         Transformer transformer = transformerFactory.newTransformer();
@@ -598,17 +623,21 @@ public class RaleighEventsRSSGenerator {
         LOG.info("RSS feed written to: {}", rssFilePath);
     }
 
-    private void logFeedStatistics(org.w3c.dom.Document doc) {
+    private void logFeedStatistics(org.w3c.dom.Document doc, int droppedEventsCount) {
         org.w3c.dom.NodeList items = doc.getElementsByTagName("item");
         int totalEvents = items.getLength();
 
         if (totalEvents == 0) {
             LOG.info("RSS feed contains 0 events");
+            if (droppedEventsCount > 0) {
+                LOG.info("Dropped {} old events (older than {} days)",
+                        droppedEventsCount, DROP_EVENTS_OLDER_THAN_DAYS);
+            }
             return;
         }
 
         ZonedDateTime oldestDate = findLastPubDate(items).orElse(null);
-        logEventStatistics(totalEvents, oldestDate);
+        logEventStatistics(totalEvents, oldestDate, droppedEventsCount);
     }
 
     private Optional<ZonedDateTime> findLastPubDate(org.w3c.dom.NodeList items) {
@@ -642,13 +671,19 @@ public class RaleighEventsRSSGenerator {
         return null;
     }
 
-    private void logEventStatistics(int totalEvents, ZonedDateTime oldestDate) {
+    private void logEventStatistics(int totalEvents, ZonedDateTime oldestDate,
+                                     int droppedEventsCount) {
         if (oldestDate != null) {
             long daysSinceOldest = Duration.between(oldestDate, ZonedDateTime.now()).toDays();
             LOG.info("RSS feed contains {} total events, oldest entry is {} days old",
                     totalEvents, daysSinceOldest);
         } else {
             LOG.info("RSS feed contains {} total events", totalEvents);
+        }
+
+        if (droppedEventsCount > 0) {
+            LOG.info("Dropped {} old events (older than {} days)",
+                    droppedEventsCount, DROP_EVENTS_OLDER_THAN_DAYS);
         }
     }
 
