@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -51,6 +53,7 @@ public class RaleighEventsRSSGenerator {
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
     private static final boolean DEBUG_MODE = false;
     private static final int DEFAULT_NUM_PAGES = 10;
+    private static final Pattern NUM_PAGES_PATTERN = Pattern.compile("(?:^|[?&])page=(\\d+)");
     private static final String LAST_PAGE_LINK_ELEMENT = "li.arrow.arrow-next.arrow-double";
 
     private final Set<String> existingGuids;
@@ -281,13 +284,14 @@ public class RaleighEventsRSSGenerator {
     }
 
     private int parsePageNumberFromHref(String href) {
-        String[] tokens = href.split("=");
-        if (tokens.length < 2) {
+        Matcher matcher = NUM_PAGES_PATTERN.matcher(href);
+
+        if (!matcher.find()) {
             return DEFAULT_NUM_PAGES;
         }
-
+        String pageNumber = matcher.group(1);
         try {
-            return Integer.parseInt(tokens[1]);
+            return Integer.parseInt(pageNumber);
         } catch (NumberFormatException e) {
             LOG.error("Failed to parse number of pages", e);
             return DEFAULT_NUM_PAGES;
