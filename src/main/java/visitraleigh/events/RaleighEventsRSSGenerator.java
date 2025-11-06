@@ -14,8 +14,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -50,6 +53,9 @@ public class RaleighEventsRSSGenerator {
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
     private static final boolean DEBUG_MODE = false;
     private static final int DEFAULT_NUM_PAGES = 10;
+    private static final int DAYS_INTO_FUTURE = getDaysIntoFuture();
+    private static final int DROP_EVENTS_OLDER_THAN_DAYS = getDropEventsOlderThanDays();
+    private static final Pattern NUM_PAGES_PATTERN = Pattern.compile("(?:^|[?&])page=(\\d+)");
     private static final String LAST_PAGE_LINK_ELEMENT = "li.arrow.arrow-next.arrow-double";
 
     private final Set<String> existingGuids;
@@ -60,6 +66,36 @@ public class RaleighEventsRSSGenerator {
         this.rssFilePath = requireNonNull(rssFilePath);
         this.existingGuids = new HashSet<>();
         this.newEvents = new ArrayList<>();
+    }
+
+    private static int getDaysIntoFuture() {
+        String envValue = System.getenv("DAYS_INTO_FUTURE");
+        if (envValue != null) {
+            try {
+                return Integer.parseInt(envValue);
+            } catch (NumberFormatException e) {
+                LOG.warn("Invalid DAYS_INTO_FUTURE value: {}, using default of 30", envValue);
+            }
+        }
+        return 30;
+    }
+
+    private static int getDropEventsOlderThanDays() {
+        String envValue = System.getenv("DROP_EVENTS_OLDER_THAN_DAYS");
+        if (envValue != null) {
+            try {
+                return Integer.parseInt(envValue);
+            } catch (NumberFormatException e) {
+                LOG.warn("Invalid DROP_EVENTS_OLDER_THAN_DAYS value: {}, using default of 30",
+                        envValue);
+            }
+        }
+        return 30;
+    }
+
+    private static String getEndDate() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+        return ZonedDateTime.now().plusDays(DAYS_INTO_FUTURE).format(formatter);
     }
 
     public static void main(String[] args) {
@@ -128,7 +164,7 @@ public class RaleighEventsRSSGenerator {
 
         try {
             int numPages = scrapeAllPages(driver);
-            LOG.info("Successfully parsed {} total events across {} pages",
+            LOG.info("Successfully parsed {} new events across {} pages",
                     newEvents.size(), numPages);
         } finally {
             driver.quit();
@@ -139,9 +175,10 @@ public class RaleighEventsRSSGenerator {
             throws IOException {
         int page = 1;
         int numPages = 1;
+        String endDate = getEndDate();
 
         while (page <= numPages) {
-            String url = BASE_URL + "?page=" + page;
+            String url = BASE_URL + "?page=" + page + "&endDate=" + endDate;
             LOG.info("Scraping {}", url);
 
             Document doc = loadAndParsePage(driver, url, page);
@@ -152,7 +189,7 @@ public class RaleighEventsRSSGenerator {
             }
 
             scrapeEventsFromPage(doc);
-            LOG.info("Successfully parsed {} total events so far (page {} of {})",
+            LOG.info("Successfully parsed {} new events so far (page {} of {})",
                     newEvents.size(), page, numPages);
 
             page++;
@@ -224,10 +261,10 @@ public class RaleighEventsRSSGenerator {
 
         if (event != null) {
             if (!existingGuids.add(event.guid)) {
-                LOG.debug("Found existing event: {}", event.title);
+                LOG.info("Found existing event: {}", event.title);
             } else {
                 newEvents.add(event);
-                LOG.debug("Found new event: {}", event.title);
+                LOG.info("Found new event: {}", event.title);
             }
         }
     }
@@ -246,35 +283,51 @@ public class RaleighEventsRSSGenerator {
     }
 
     private int getNumPages(Document doc) {
-        final Elements doubleArrow = doc.select(LAST_PAGE_LINK_ELEMENT);
+        Elements doubleArrow = doc.select(LAST_PAGE_LINK_ELEMENT);
         if (doubleArrow.isEmpty()) {
             return DEFAULT_NUM_PAGES;
         }
-        final Element first = doubleArrow.first();
-        if (first == null) {
+
+        String href = extractHrefFromPaginationElement(doubleArrow);
+        if (href == null) {
             return DEFAULT_NUM_PAGES;
         }
-        final Elements children = first.children();
+
+        return parsePageNumberFromHref(href);
+    }
+
+    private String extractHrefFromPaginationElement(Elements doubleArrow) {
+        Element first = doubleArrow.first();
+        if (first == null) {
+            return null;
+        }
+
+        Elements children = first.children();
         if (children.isEmpty()) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+            return null;
         }
-        final Element firstChild = children.first();
+
+        Element firstChild = children.first();
         if (firstChild == null) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+            return null;
         }
-        final String href = firstChild.attr("href");
-        if (href.isEmpty()) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+
+        String href = firstChild.attr("href");
+        return href.isEmpty() ? null : href;
+    }
+
+    private int parsePageNumberFromHref(String href) {
+        Matcher matcher = NUM_PAGES_PATTERN.matcher(href);
+
+        if (!matcher.find()) {
+            return DEFAULT_NUM_PAGES;
         }
-        final String[] tokens = href.split("=");
-        if (tokens.length < 2) {
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
-        }
+        String pageNumber = matcher.group(1);
         try {
-            return Integer.parseInt(tokens[1]);
+            return Integer.parseInt(pageNumber);
         } catch (NumberFormatException e) {
             LOG.error("Failed to parse number of pages", e);
-            return RaleighEventsRSSGenerator.DEFAULT_NUM_PAGES;
+            return DEFAULT_NUM_PAGES;
         }
     }
 
@@ -531,18 +584,31 @@ public class RaleighEventsRSSGenerator {
             addEventItem(doc, channel, event);
         }
 
+        int droppedEventsCount = 0;
         if (new File(rssFilePath).exists()) {
             org.w3c.dom.Document oldDoc = builder.parse(new File(rssFilePath));
             oldDoc.getDocumentElement().normalize();
             org.w3c.dom.NodeList oldItems = oldDoc.getElementsByTagName("item");
 
+            ZonedDateTime cutoffDate = ZonedDateTime.now().minusDays(DROP_EVENTS_OLDER_THAN_DAYS);
+            DateTimeFormatter formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
+
             for (int i = 0; i < oldItems.getLength(); i++) {
                 org.w3c.dom.Node oldItem = oldItems.item(i);
+                ZonedDateTime pubDate = extractPubDateFromItem(oldItem, formatter);
+
+                if (pubDate != null && pubDate.isBefore(cutoffDate)) {
+                    droppedEventsCount++;
+                    continue;
+                }
+
                 org.w3c.dom.Node importedNode = doc.importNode(oldItem, true);
                 removeWhitespaceNodes(importedNode);
                 channel.appendChild(importedNode);
             }
         }
+
+        logFeedStatistics(doc, droppedEventsCount);
 
         TransformerFactory transformerFactory = getTransformerFactory();
         Transformer transformer = transformerFactory.newTransformer();
@@ -555,6 +621,70 @@ public class RaleighEventsRSSGenerator {
         transformer.transform(source, result);
 
         LOG.info("RSS feed written to: {}", rssFilePath);
+    }
+
+    private void logFeedStatistics(org.w3c.dom.Document doc, int droppedEventsCount) {
+        org.w3c.dom.NodeList items = doc.getElementsByTagName("item");
+        int totalEvents = items.getLength();
+
+        if (totalEvents == 0) {
+            LOG.info("RSS feed contains 0 events");
+            if (droppedEventsCount > 0) {
+                LOG.info("Dropped {} old events (older than {} days)",
+                        droppedEventsCount, DROP_EVENTS_OLDER_THAN_DAYS);
+            }
+            return;
+        }
+
+        ZonedDateTime oldestDate = findLastPubDate(items).orElse(null);
+        logEventStatistics(totalEvents, oldestDate, droppedEventsCount);
+    }
+
+    private Optional<ZonedDateTime> findLastPubDate(org.w3c.dom.NodeList items) {
+        DateTimeFormatter formatter = DateTimeFormatter.RFC_1123_DATE_TIME;
+
+        if (items.getLength() <= 0) {
+            return Optional.empty();
+        }
+
+        org.w3c.dom.Node item = items.item(items.getLength() - 1);
+        return Optional.ofNullable(extractPubDateFromItem(item, formatter));
+    }
+
+    private ZonedDateTime extractPubDateFromItem(org.w3c.dom.Node item,
+                                                  DateTimeFormatter formatter) {
+        org.w3c.dom.NodeList children = item.getChildNodes();
+
+        for (int j = 0; j < children.getLength(); j++) {
+            org.w3c.dom.Node child = children.item(j);
+            if ("pubDate".equals(child.getNodeName())) {
+                try {
+                    String pubDateStr = child.getTextContent();
+                    return ZonedDateTime.parse(pubDateStr, formatter);
+                } catch (Exception e) {
+                    LOG.debug("Failed to parse pubDate: {}", child.getTextContent(), e);
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void logEventStatistics(int totalEvents, ZonedDateTime oldestDate,
+                                     int droppedEventsCount) {
+        if (oldestDate != null) {
+            long daysSinceOldest = Duration.between(oldestDate, ZonedDateTime.now()).toDays();
+            LOG.info("RSS feed contains {} total events, oldest entry is {} days old",
+                    totalEvents, daysSinceOldest);
+        } else {
+            LOG.info("RSS feed contains {} total events", totalEvents);
+        }
+
+        if (droppedEventsCount > 0) {
+            LOG.info("Dropped {} old events (older than {} days)",
+                    droppedEventsCount, DROP_EVENTS_OLDER_THAN_DAYS);
+        }
     }
 
     private static TransformerFactory getTransformerFactory() {
