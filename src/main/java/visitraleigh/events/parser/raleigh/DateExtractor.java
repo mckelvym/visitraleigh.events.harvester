@@ -1,0 +1,46 @@
+package visitraleigh.events.parser.raleigh;
+
+import static java.util.Objects.requireNonNull;
+import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS_CAPITALIZED;
+import static visitraleigh.events.parser.raleigh.CssSelectors.TIME_ELEMENT;
+
+import org.jsoup.nodes.Element;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Extracts event dates from HTML elements.
+ *
+ * <p>This class extracts date information from event cards by looking for:
+ * <ul>
+ *   <li>HTML5 time elements</li>
+ *   <li>Elements with 'date' or 'Date' in class name</li>
+ * </ul>
+ */
+public class DateExtractor {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DateExtractor.class);
+
+    /**
+     * Extracts the date string from an event card element.
+     *
+     * @param eventCard The event card container element
+     * @return The extracted date string, or empty string if not found
+     * @throws NullPointerException if eventCard is null
+     */
+    public String extractDate(Element eventCard) {
+        requireNonNull(eventCard, "eventCard must not be null");
+        Element dateElement = eventCard.selectFirst(
+                TIME_ELEMENT + ", " + DATE_CLASS + ", " + DATE_CLASS_CAPITALIZED);
+
+        if (dateElement != null) {
+            String dateText = dateElement.text().trim();
+            LOG.debug("Extracted date: {}", dateText);
+            return dateText;
+        }
+
+        LOG.debug("No date found in event card");
+        return "";
+    }
+}

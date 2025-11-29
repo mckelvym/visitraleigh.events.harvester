@@ -4,15 +4,12 @@ plugins {
     id 'java'
     id 'application'
     id 'checkstyle'
-    id 'com.github.spotbugs' version '6.4.4'
-    id 'com.google.cloud.tools.jib' version '3.4.5'
+    id 'com.github.spotbugs' version '6.4.5'
+    id 'com.google.cloud.tools.jib' version '3.5.1'
 }
 
 group = 'com.raleigh.events'
 version = '1.0.0'
-
-sourceCompatibility = '17'
-targetCompatibility = '17'
 
 repositories {
     mavenCentral()
@@ -20,31 +17,41 @@ repositories {
 
 dependencies {
     // JSoup for HTML parsing
-    implementation 'org.jsoup:jsoup:1.17.2'
+    implementation 'org.jsoup:jsoup:1.21.2'
     // Logging
     implementation 'org.slf4j:slf4j-api:2.0.17'
     implementation 'org.slf4j:jul-to-slf4j:2.0.17' // SLF4J-JUL bridge
 
     // Selenium for JavaScript-rendered content
-    implementation 'org.seleniumhq.selenium:selenium-java:4.25.0'
-    implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.25.0'
+    implementation 'org.seleniumhq.selenium:selenium-java:4.38.0'
+    implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.38.0'
 
-    runtimeOnly 'ch.qos.logback:logback-classic:1.5.20'
+    runtimeOnly 'ch.qos.logback:logback-classic:1.5.21'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.0.1'
+    testImplementation 'org.mockito:mockito-core:5.20.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.20.0'
+    testImplementation 'org.assertj:assertj-core:3.27.6'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 application {
-    mainClassName = 'visitraleigh.events.RaleighEventsRSSGenerator'
+    mainClassName = 'visitraleigh.events.RaleighEventsApplication'
 }
 
 // Checkstyle configuration
 checkstyle {
-    toolVersion = '12.1.0'
+    toolVersion = '12.1.2'
     configFile = file("${rootProject.projectDir}/config/checkstyle/checkstyle.xml")
     maxWarnings = 0
     maxErrors = 0
 }
 
-// SpotBugs configuration
+// More lenient checkstyle for tests
+tasks.named('checkstyleTest') {
+    enabled = false
+}
+
 spotbugs {
     ignoreFailures = false
 }
@@ -56,24 +63,8 @@ tasks.withType(SpotBugsTask).configureEach {
     }
 }
 
-// Create a fat JAR with all dependencies
-tasks.register('fatJar', Jar) {
-    group = 'build'
-    description = 'Create a standalone JAR with all dependencies'
-
-    manifest {
-        attributes 'Main-Class': 'visitraleigh.events.RaleighEventsRSSGenerator'
-    }
-
-    archiveBaseName.set('raleigh-events-rss-generator')
-    archiveClassifier.set('all')
-
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-
-    with jar
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+tasks.named('spotbugsTest') {
+    enabled = false
 }
 
 // Configure the default run task
@@ -88,6 +79,14 @@ run {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.deprecation = true
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
 }
 
 jib {
