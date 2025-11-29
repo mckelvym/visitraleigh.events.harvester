@@ -1,5 +1,6 @@
 package visitraleigh.events.parser.raleigh;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS;
 import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS_CAPITALIZED;
 import static visitraleigh.events.parser.raleigh.CssSelectors.TIME_ELEMENT;
@@ -26,8 +27,10 @@ public class DateExtractor {
      *
      * @param eventCard The event card container element
      * @return The extracted date string, or empty string if not found
+     * @throws NullPointerException if eventCard is null
      */
     public String extractDate(Element eventCard) {
+        requireNonNull(eventCard, "eventCard must not be null");
         Element dateElement = eventCard.selectFirst(
                 TIME_ELEMENT + ", " + DATE_CLASS + ", " + DATE_CLASS_CAPITALIZED);
 

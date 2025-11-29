@@ -1,5 +1,6 @@
 package visitraleigh.events.scraper.raleigh;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_LINK;
 
 import java.util.ArrayList;
@@ -38,10 +39,11 @@ public class EventLinkDiscoverer {
      * @param eventUrlPattern The regex pattern for validating event URLs
      * @param hostFilter The host string that must appear in valid URLs
      *                   (e.g., "visitraleigh.com/event/")
+     * @throws NullPointerException if eventUrlPattern or hostFilter is null
      */
     public EventLinkDiscoverer(Pattern eventUrlPattern, String hostFilter) {
-        this.eventUrlPattern = eventUrlPattern;
-        this.hostFilter = hostFilter;
+        this.eventUrlPattern = requireNonNull(eventUrlPattern, "eventUrlPattern must not be null");
+        this.hostFilter = requireNonNull(hostFilter, "hostFilter must not be null");
     }
 
     /**
@@ -52,8 +54,10 @@ public class EventLinkDiscoverer {
      *
      * @param doc The JSoup document to search
      * @return List of Element objects representing valid event links
+     * @throws NullPointerException if doc is null
      */
     public List<Element> discoverEventLinks(Document doc) {
+        requireNonNull(doc, "doc must not be null");
         Elements allLinks = doc.select(EVENT_LINK);
         LOG.debug("Found {} links containing '/event/'", allLinks.size());
 

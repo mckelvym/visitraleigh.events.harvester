@@ -1,5 +1,6 @@
 package visitraleigh.events.parser.raleigh;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.raleigh.CssSelectors.ARIA_LABEL;
 import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_LINK;
 import static visitraleigh.events.parser.raleigh.CssSelectors.HEADINGS;
@@ -42,8 +43,10 @@ public class TitleExtractor {
      *
      * @param eventCard The event card container element
      * @return Optional containing the extracted title, or empty if extraction fails
+     * @throws NullPointerException if eventCard is null
      */
     public Optional<String> extractTitle(Element eventCard) {
+        requireNonNull(eventCard, "eventCard must not be null");
         String title = extractTitleFromHeadings(eventCard);
 
         if (title.length() < MIN_TITLE_LENGTH) {

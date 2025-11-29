@@ -1,5 +1,6 @@
 package visitraleigh.events.parser.raleigh;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.raleigh.CssSelectors.BLOCK_META_CLASS;
 import static visitraleigh.events.parser.raleigh.CssSelectors.BLOCK_META_DIV;
 import static visitraleigh.events.parser.raleigh.CssSelectors.BR_TAG;
@@ -39,8 +40,10 @@ public class DescriptionExtractor {
      *
      * @param eventCard The event card container element
      * @return The extracted description, or empty string if not found
+     * @throws NullPointerException if eventCard is null
      */
     public String extractDescription(Element eventCard) {
+        requireNonNull(eventCard, "eventCard must not be null");
         String description = extractDescriptionFromBlockMeta(eventCard);
 
         if (description.isEmpty()) {

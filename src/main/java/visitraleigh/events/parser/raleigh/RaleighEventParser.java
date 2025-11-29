@@ -1,5 +1,7 @@
 package visitraleigh.events.parser.raleigh;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.base.Splitter;
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +55,7 @@ public class RaleighEventParser implements EventParser {
 
     @Override
     public Optional<EventItem> parseEvent(Element linkElement) {
+        requireNonNull(linkElement, "linkElement must not be null");
         try {
             String eventUri = linkElement.attr("abs:href");
             logDebug("Parsing link: {}", eventUri);

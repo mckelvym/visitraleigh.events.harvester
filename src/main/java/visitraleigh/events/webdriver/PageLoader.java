@@ -46,15 +46,16 @@ public class PageLoader {
      * @param timeout The maximum time to wait for pages to load
      * @param waitSelector The CSS selector to wait for (indicates page loaded)
      * @param debugMode Whether to save debug HTML files
+     * @throws NullPointerException if driver, timeout, or waitSelector is null
      */
     public PageLoader(
             WebDriver driver,
             Duration timeout,
             String waitSelector,
             boolean debugMode) {
-        this.driver = requireNonNull(driver);
-        this.timeout = requireNonNull(timeout);
-        this.waitSelector = requireNonNull(waitSelector);
+        this.driver = requireNonNull(driver, "driver must not be null");
+        this.timeout = requireNonNull(timeout, "timeout must not be null");
+        this.waitSelector = requireNonNull(waitSelector, "waitSelector must not be null");
         this.debugMode = debugMode;
     }
 
@@ -74,8 +75,10 @@ public class PageLoader {
      * @param pageNumber The page number (for debug file naming)
      * @return JSoup Document parsed from the page source
      * @throws IOException if saving debug file fails
+     * @throws NullPointerException if url is null
      */
     public Document loadAndParse(String url, int pageNumber) throws IOException {
+        requireNonNull(url, "url must not be null");
         final long startTime = System.currentTimeMillis();
 
         LOG.debug("Loading page: {}", url);

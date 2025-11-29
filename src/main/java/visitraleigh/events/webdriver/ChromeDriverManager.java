@@ -1,5 +1,6 @@
 package visitraleigh.events.webdriver;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.webdriver.ChromeOptionsConstants.DISABLE_DEV_SHM;
 import static visitraleigh.events.webdriver.ChromeOptionsConstants.DISABLE_GPU;
 import static visitraleigh.events.webdriver.ChromeOptionsConstants.HEADLESS;
@@ -41,10 +42,11 @@ public class ChromeDriverManager implements WebDriverManager {
      *
      * @param userAgent The user agent string to use for the browser
      * @param windowSize The window size as "width,height" (e.g., "1920,1080")
+     * @throws NullPointerException if userAgent or windowSize is null
      */
     public ChromeDriverManager(String userAgent, String windowSize) {
-        this.userAgent = userAgent;
-        this.windowSize = windowSize;
+        this.userAgent = requireNonNull(userAgent, "userAgent must not be null");
+        this.windowSize = requireNonNull(windowSize, "windowSize must not be null");
     }
 
     @Override

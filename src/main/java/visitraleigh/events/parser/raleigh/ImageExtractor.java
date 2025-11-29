@@ -1,5 +1,6 @@
 package visitraleigh.events.parser.raleigh;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.raleigh.CssSelectors.ICON_FILTER;
 import static visitraleigh.events.parser.raleigh.CssSelectors.LOGO_FILTER;
 
@@ -31,8 +32,10 @@ public class ImageExtractor {
      *
      * @param eventCard The event card container element
      * @return The extracted image URL, or empty string if not found or filtered
+     * @throws NullPointerException if eventCard is null
      */
     public String extractImageUrl(Element eventCard) {
+        requireNonNull(eventCard, "eventCard must not be null");
         Element imgElement = eventCard.selectFirst("img[src]");
 
         if (imgElement != null) {

@@ -1,5 +1,6 @@
 package visitraleigh.events.feed;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.feed.RssElementNames.CHANNEL;
 import static visitraleigh.events.feed.RssElementNames.DESCRIPTION;
 import static visitraleigh.events.feed.RssElementNames.ENCLOSURE;
@@ -79,6 +80,7 @@ public class RssFeedManagerImpl implements RssFeedManager {
 
     @Override
     public Set<String> loadExistingGuids(String filePath) throws Exception {
+        requireNonNull(filePath, "filePath must not be null");
         File rssFile = new File(filePath);
         if (!rssFile.exists()) {
             LOG.info("No existing RSS feed found at: {}", filePath);
@@ -108,6 +110,11 @@ public class RssFeedManagerImpl implements RssFeedManager {
             String channelTitle,
             String channelLink,
             String channelDescription) throws Exception {
+        requireNonNull(filePath, "filePath must not be null");
+        requireNonNull(newEvents, "newEvents must not be null");
+        requireNonNull(channelTitle, "channelTitle must not be null");
+        requireNonNull(channelLink, "channelLink must not be null");
+        requireNonNull(channelDescription, "channelDescription must not be null");
 
         LOG.info("Generating RSS feed with {} new events", newEvents.size());
 

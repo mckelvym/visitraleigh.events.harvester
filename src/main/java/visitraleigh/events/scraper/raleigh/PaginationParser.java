@@ -1,5 +1,7 @@
 package visitraleigh.events.scraper.raleigh;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jsoup.nodes.Document;
@@ -31,13 +33,16 @@ public class PaginationParser {
      * @param lastPageLinkSelector CSS selector for the last page link element
      * @param numPagesPattern Regex pattern for extracting page numbers from URLs
      * @param defaultNumPages Default number of pages if extraction fails
+     * @throws NullPointerException if lastPageLinkSelector or numPagesPattern is null
      */
     public PaginationParser(
             String lastPageLinkSelector,
             Pattern numPagesPattern,
             int defaultNumPages) {
-        this.lastPageLinkSelector = lastPageLinkSelector;
-        this.numPagesPattern = numPagesPattern;
+        this.lastPageLinkSelector = requireNonNull(lastPageLinkSelector,
+                "lastPageLinkSelector must not be null");
+        this.numPagesPattern = requireNonNull(numPagesPattern,
+                "numPagesPattern must not be null");
         this.defaultNumPages = defaultNumPages;
     }
 
@@ -54,8 +59,10 @@ public class PaginationParser {
      *
      * @param doc The JSoup document containing pagination controls
      * @return The number of pages, or default value if extraction fails
+     * @throws NullPointerException if doc is null
      */
     public int getNumPages(Document doc) {
+        requireNonNull(doc, "doc must not be null");
         Elements doubleArrow = doc.select(lastPageLinkSelector);
         if (doubleArrow.isEmpty()) {
             LOG.debug("No pagination element found, using default: {}", defaultNumPages);

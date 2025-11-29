@@ -1,5 +1,7 @@
 package visitraleigh.events.scraper.raleigh;
 
+import static java.util.Objects.requireNonNull;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,14 +52,15 @@ public class RaleighEventScraper implements EventScraper {
      * @param config The scraper configuration
      * @param driverManager The WebDriver manager
      * @param parser The event parser
+     * @throws NullPointerException if any parameter is null
      */
     public RaleighEventScraper(
             ScraperConfiguration config,
             WebDriverManager driverManager,
             EventParser parser) {
-        this.config = config;
-        this.driverManager = driverManager;
-        this.parser = parser;
+        this.config = requireNonNull(config, "config must not be null");
+        this.driverManager = requireNonNull(driverManager, "driverManager must not be null");
+        this.parser = requireNonNull(parser, "parser must not be null");
 
         // Initialize helper components
         this.paginationParser = new PaginationParser(
@@ -79,6 +82,7 @@ public class RaleighEventScraper implements EventScraper {
 
     @Override
     public List<EventItem> scrapeEvents(Set<String> existingGuids) throws Exception {
+        requireNonNull(existingGuids, "existingGuids must not be null");
         LOG.info("Starting event scraping from {}", config.getBaseUrl());
 
         List<EventItem> newEvents = new ArrayList<>();

@@ -1,5 +1,6 @@
 package visitraleigh.events.parser.raleigh;
 
+import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.raleigh.CssSelectors.ARTICLE_TAG;
 import static visitraleigh.events.parser.raleigh.CssSelectors.CARD_CLASS_PATTERN;
 import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_CLASS_PATTERN;
@@ -39,8 +40,10 @@ public class EventCardFinder {
      * @param linkElement The link element to start from
      * @return The event card container element, or the last element checked
      *         if no container is found
+     * @throws NullPointerException if linkElement is null
      */
     public Element findEventCardContainer(Element linkElement) {
+        requireNonNull(linkElement, "linkElement must not be null");
         Element current = linkElement;
 
         for (int i = 0; i < MAX_TRAVERSAL_DEPTH; i++) {
