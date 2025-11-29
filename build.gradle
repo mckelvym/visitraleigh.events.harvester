@@ -4,15 +4,12 @@ plugins {
     id 'java'
     id 'application'
     id 'checkstyle'
-    id 'com.github.spotbugs' version '6.4.4'
-    id 'com.google.cloud.tools.jib' version '3.4.5'
+    id 'com.github.spotbugs' version '6.4.5'
+    id 'com.google.cloud.tools.jib' version '3.5.1'
 }
 
 group = 'com.raleigh.events'
 version = '1.0.0'
-
-sourceCompatibility = '17'
-targetCompatibility = '17'
 
 repositories {
     mavenCentral()
@@ -20,35 +17,31 @@ repositories {
 
 dependencies {
     // JSoup for HTML parsing
-    implementation 'org.jsoup:jsoup:1.17.2'
+    implementation 'org.jsoup:jsoup:1.21.2'
     // Logging
     implementation 'org.slf4j:slf4j-api:2.0.17'
     implementation 'org.slf4j:jul-to-slf4j:2.0.17' // SLF4J-JUL bridge
 
     // Selenium for JavaScript-rendered content
-    implementation 'org.seleniumhq.selenium:selenium-java:4.25.0'
-    implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.25.0'
+    implementation 'org.seleniumhq.selenium:selenium-java:4.38.0'
+    implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.38.0'
 
-    runtimeOnly 'ch.qos.logback:logback-classic:1.5.20'
+    runtimeOnly 'ch.qos.logback:logback-classic:1.5.21'
 
-    // Testing dependencies
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
-    testImplementation 'org.mockito:mockito-core:5.14.2'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.14.2'
-    testImplementation 'org.assertj:assertj-core:3.27.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.0.1'
+    testImplementation 'org.mockito:mockito-core:5.20.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.20.0'
+    testImplementation 'org.assertj:assertj-core:3.27.6'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 application {
-    // New SOLID-compliant application (use this for the refactored version)
     mainClassName = 'visitraleigh.events.RaleighEventsApplication'
-    // Old monolithic version (kept for reference):
-    // mainClassName = 'visitraleigh.events.RaleighEventsRSSGenerator'
 }
 
 // Checkstyle configuration
 checkstyle {
-    toolVersion = '12.1.0'
+    toolVersion = '12.1.2'
     configFile = file("${rootProject.projectDir}/config/checkstyle/checkstyle.xml")
     maxWarnings = 0
     maxErrors = 0
@@ -56,11 +49,9 @@ checkstyle {
 
 // More lenient checkstyle for tests
 tasks.named('checkstyleTest') {
-    // Skip checkstyle for tests (common practice for test code)
     enabled = false
 }
 
-// SpotBugs configuration
 spotbugs {
     ignoreFailures = false
 }
@@ -72,29 +63,8 @@ tasks.withType(SpotBugsTask).configureEach {
     }
 }
 
-// Skip SpotBugs for test code (reflection usage is acceptable in tests)
 tasks.named('spotbugsTest') {
     enabled = false
-}
-
-// Create a fat JAR with all dependencies
-tasks.register('fatJar', Jar) {
-    group = 'build'
-    description = 'Create a standalone JAR with all dependencies'
-
-    manifest {
-        attributes 'Main-Class': 'visitraleigh.events.RaleighEventsRSSGenerator'
-    }
-
-    archiveBaseName.set('raleigh-events-rss-generator')
-    archiveClassifier.set('all')
-
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-
-    with jar
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 // Configure the default run task
@@ -111,7 +81,6 @@ tasks.withType(JavaCompile).configureEach {
     options.deprecation = true
 }
 
-// Configure JUnit 5
 test {
     useJUnitPlatform()
     testLogging {
