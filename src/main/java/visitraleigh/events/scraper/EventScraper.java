@@ -12,8 +12,11 @@ import visitraleigh.events.domain.EventItem;
  *
  * <p>This interface follows the Dependency Inversion Principle and allows
  * for multiple implementations for different event websites.
+ *
+ * <p>Implementations manage external resources (WebDriver) and should be
+ * used with try-with-resources to ensure proper cleanup.
  */
-public interface EventScraper {
+public interface EventScraper extends AutoCloseable {
 
     /**
      * Scrapes events from the configured website.

@@ -70,11 +70,10 @@ public final class RaleighEventsApplication {
                 config.getUserAgent(),
                 config.getWindowSize());
         EventParser parser = new RaleighEventParser(config.isDebugMode());
-        EventScraper scraper = new RaleighEventScraper(config, driverManager, parser);
         RssFeedManager feedManager = new RssFeedManagerImpl(
                 config.getDropEventsOlderThanDays());
 
-        try {
+        try (EventScraper scraper = new RaleighEventScraper(config, driverManager, parser)) {
             // Execute workflow
             LOG.info("Phase 1: Loading existing feed...");
             Set<String> existingGuids = feedManager.loadExistingGuids(rssFilePath);
@@ -96,9 +95,6 @@ public final class RaleighEventsApplication {
         } catch (Exception e) {
             LOG.error("Error generating RSS feed: {}", e.getMessage(), e);
             System.exit(1);
-        } finally {
-            // Always clean up WebDriver resources
-            scraper.close();
         }
     }
 }
