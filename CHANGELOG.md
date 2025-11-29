@@ -1,3 +1,12 @@
+# Changes since 1.2.0
+
+- Refactor to a more modular project and class structure and include tests
+- Ensure gradle dependencies are updated to the latest
+- EventScraper implements AutoCloseable
+- Move hardcoded strings to constants
+- Fail fast by requireNonNull for arguments expected to be non-null
+- Don't use instanceof
+
 # Changes since 1.1.0
 
 - Add checks for cyclomatic complexity and npathcomplexity; address findings
