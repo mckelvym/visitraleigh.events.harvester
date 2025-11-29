@@ -1,5 +1,7 @@
 package visitraleigh.events.scraper.raleigh;
 
+import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_LINK;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -52,7 +54,7 @@ public class EventLinkDiscoverer {
      * @return List of Element objects representing valid event links
      */
     public List<Element> discoverEventLinks(Document doc) {
-        Elements allLinks = doc.select("a[href*='/event/']");
+        Elements allLinks = doc.select(EVENT_LINK);
         LOG.debug("Found {} links containing '/event/'", allLinks.size());
 
         List<Element> eventLinks = new ArrayList<>();

@@ -1,5 +1,11 @@
 package visitraleigh.events.feed;
 
+import static visitraleigh.events.feed.XmlSecurityFeatures.DISALLOW_DOCTYPE_DECL;
+import static visitraleigh.events.feed.XmlSecurityFeatures.EMPTY_VALUE;
+import static visitraleigh.events.feed.XmlSecurityFeatures.EXTERNAL_GENERAL_ENTITIES;
+import static visitraleigh.events.feed.XmlSecurityFeatures.EXTERNAL_PARAMETER_ENTITIES;
+import static visitraleigh.events.feed.XmlSecurityFeatures.LOAD_EXTERNAL_DTD;
+
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -44,11 +50,10 @@ public class XmlSecurityConfigurer {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 
         // Disable external entity processing to prevent XXE attacks
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        factory.setFeature(
-                "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setFeature(DISALLOW_DOCTYPE_DECL, true);
+        factory.setFeature(EXTERNAL_GENERAL_ENTITIES, false);
+        factory.setFeature(EXTERNAL_PARAMETER_ENTITIES, false);
+        factory.setFeature(LOAD_EXTERNAL_DTD, false);
 
         // Additional security measures
         factory.setXIncludeAware(false);
@@ -69,8 +74,8 @@ public class XmlSecurityConfigurer {
         TransformerFactory transformerFactory = TransformerFactory.newInstance();
 
         // Disable external entity processing
-        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
+        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, EMPTY_VALUE);
+        transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, EMPTY_VALUE);
 
         return transformerFactory;
     }

@@ -1,5 +1,7 @@
 package visitraleigh.events.feed;
 
+import static visitraleigh.events.feed.RssElementNames.PUB_DATE;
+
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -66,7 +68,7 @@ public class EventFilter {
 
         for (int j = 0; j < children.getLength(); j++) {
             Node child = children.item(j);
-            if ("pubDate".equals(child.getNodeName())) {
+            if (PUB_DATE.equals(child.getNodeName())) {
                 try {
                     String pubDateStr = child.getTextContent();
                     return ZonedDateTime.parse(pubDateStr, RFC_1123_FORMATTER);

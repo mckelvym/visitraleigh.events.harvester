@@ -1,5 +1,18 @@
 package visitraleigh.events.parser.raleigh;
 
+import static visitraleigh.events.parser.raleigh.CssSelectors.BLOCK_META_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.BLOCK_META_DIV;
+import static visitraleigh.events.parser.raleigh.CssSelectors.BR_TAG;
+import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_INFO_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.DESCRIPTION_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.EXCERPT_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.LOCATION_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.PARAGRAPH;
+import static visitraleigh.events.parser.raleigh.CssSelectors.REGION_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.REGION_TEXT;
+import static visitraleigh.events.parser.raleigh.CssSelectors.SPACE_SEPARATOR;
+import static visitraleigh.events.parser.raleigh.CssSelectors.TIMES_CLASS;
+
 import java.util.function.UnaryOperator;
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;
@@ -58,22 +71,18 @@ public class DescriptionExtractor {
      * @return The extracted description, or empty string if not found
      */
     private String extractDescriptionFromBlockMeta(Element eventCard) {
-        Element blockMeta = eventCard.selectFirst("div.block-meta, [class*='block-meta']");
+        Element blockMeta = eventCard.selectFirst(BLOCK_META_DIV + ", " + BLOCK_META_CLASS);
         if (blockMeta == null) {
             return "";
         }
 
         StringBuilder descBuilder = new StringBuilder();
-        UnaryOperator<String> liWrap = str -> "<br/>" + str;
+        UnaryOperator<String> liWrap = str -> BR_TAG + str;
 
-        appendTextIfPresent(descBuilder, blockMeta,
-                "[class*='dateInfo'], [class*='date-info']", liWrap);
-        appendTextIfPresent(descBuilder, blockMeta,
-                "[class*='times'], time", liWrap);
-        appendTextIfPresent(descBuilder, blockMeta,
-                "[class*='location']", liWrap);
-        appendTextIfPresent(descBuilder, blockMeta,
-                "[class*='region']", liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, DATE_INFO_CLASS, liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, TIMES_CLASS, liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, LOCATION_CLASS, liWrap);
+        appendTextIfPresent(descBuilder, blockMeta, REGION_CLASS, liWrap);
 
         return descBuilder.toString().trim();
     }
@@ -96,8 +105,8 @@ public class DescriptionExtractor {
             String text = element.text().trim();
             if (!text.isEmpty()) {
                 builder.append(wrapper.apply(text));
-                if (!selector.contains("region")) {
-                    builder.append(" ");
+                if (!selector.contains(REGION_TEXT)) {
+                    builder.append(SPACE_SEPARATOR);
                 }
             }
         }
@@ -114,7 +123,7 @@ public class DescriptionExtractor {
      */
     private String extractDescriptionFromFallback(Element eventCard) {
         Element descElement = eventCard.selectFirst(
-                "p, [class*='description'], [class*='excerpt']");
+                PARAGRAPH + ", " + DESCRIPTION_CLASS + ", " + EXCERPT_CLASS);
         return descElement != null ? descElement.text().trim() : "";
     }
 }

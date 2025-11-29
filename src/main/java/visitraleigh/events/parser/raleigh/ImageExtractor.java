@@ -1,5 +1,8 @@
 package visitraleigh.events.parser.raleigh;
 
+import static visitraleigh.events.parser.raleigh.CssSelectors.ICON_FILTER;
+import static visitraleigh.events.parser.raleigh.CssSelectors.LOGO_FILTER;
+
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +39,8 @@ public class ImageExtractor {
             String src = imgElement.attr("abs:src");
 
             // Filter out icons, logos, and short URLs
-            if (!src.contains("icon")
-                    && !src.contains("logo")
+            if (!src.contains(ICON_FILTER)
+                    && !src.contains(LOGO_FILTER)
                     && src.length() > MIN_IMAGE_URL_LENGTH) {
                 LOG.debug("Extracted image URL: {}", src);
                 return src;

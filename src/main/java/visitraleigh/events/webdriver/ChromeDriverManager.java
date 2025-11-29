@@ -1,5 +1,12 @@
 package visitraleigh.events.webdriver;
 
+import static visitraleigh.events.webdriver.ChromeOptionsConstants.DISABLE_DEV_SHM;
+import static visitraleigh.events.webdriver.ChromeOptionsConstants.DISABLE_GPU;
+import static visitraleigh.events.webdriver.ChromeOptionsConstants.HEADLESS;
+import static visitraleigh.events.webdriver.ChromeOptionsConstants.NO_SANDBOX;
+import static visitraleigh.events.webdriver.ChromeOptionsConstants.USER_AGENT_PREFIX;
+import static visitraleigh.events.webdriver.ChromeOptionsConstants.WINDOW_SIZE_PREFIX;
+
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -47,16 +54,16 @@ public class ChromeDriverManager implements WebDriverManager {
             ChromeOptions options = new ChromeOptions();
 
             // Headless mode configuration
-            options.addArguments("--headless=new");
-            options.addArguments("--disable-gpu");
+            options.addArguments(HEADLESS);
+            options.addArguments(DISABLE_GPU);
 
             // Security and stability options
-            options.addArguments("--no-sandbox");
-            options.addArguments("--disable-dev-shm-usage");
+            options.addArguments(NO_SANDBOX);
+            options.addArguments(DISABLE_DEV_SHM);
 
             // Browser configuration
-            options.addArguments("--window-size=" + windowSize);
-            options.addArguments("--user-agent=" + userAgent);
+            options.addArguments(WINDOW_SIZE_PREFIX + windowSize);
+            options.addArguments(USER_AGENT_PREFIX + userAgent);
 
             driver = new ChromeDriver(options);
             LOG.info("Chrome WebDriver initialized successfully");

@@ -1,5 +1,12 @@
 package visitraleigh.events.parser.raleigh;
 
+import static visitraleigh.events.parser.raleigh.CssSelectors.ARIA_LABEL;
+import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_LINK;
+import static visitraleigh.events.parser.raleigh.CssSelectors.HEADINGS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.IMAGE_ALT;
+import static visitraleigh.events.parser.raleigh.CssSelectors.NAME_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.TITLE_CLASS;
+
 import java.util.Optional;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -71,7 +78,7 @@ public class TitleExtractor {
      * @return The extracted title, or empty string if not found
      */
     private String extractTitleFromHeadings(Element eventCard) {
-        Element heading = eventCard.selectFirst("h1, h2, h3, h4, h5, h6");
+        Element heading = eventCard.selectFirst(HEADINGS);
         if (heading != null) {
             String title = heading.text().trim();
             LOG.trace("Found title from heading <{}>: {}", heading.tagName(), title);
@@ -87,8 +94,7 @@ public class TitleExtractor {
      * @return The extracted title, or empty string if not found
      */
     private String extractTitleFromClass(Element eventCard) {
-        Element titleElem = eventCard.selectFirst(
-                "[class*='title'], [class*='Title'], [class*='name'], [class*='Name']");
+        Element titleElem = eventCard.selectFirst(TITLE_CLASS + ", " + NAME_CLASS);
         if (titleElem != null) {
             String title = titleElem.text().trim();
             LOG.trace("Found title from class: {}", title);
@@ -104,7 +110,7 @@ public class TitleExtractor {
      * @return The extracted title, or empty string if not found
      */
     private String extractTitleFromLinks(Element eventCard) {
-        Elements links = eventCard.select("a[href*='/event/']");
+        Elements links = eventCard.select(EVENT_LINK);
         for (Element link : links) {
             String linkText = link.text().trim();
             if (linkText.length() > MIN_TITLE_LENGTH) {
@@ -122,7 +128,7 @@ public class TitleExtractor {
      * @return The extracted title, or empty string if not found
      */
     private String extractTitleFromImage(Element eventCard) {
-        Element img = eventCard.selectFirst("img[alt]");
+        Element img = eventCard.selectFirst(IMAGE_ALT);
         if (img != null) {
             String alt = img.attr("alt").trim();
             if (alt.length() > MIN_TITLE_LENGTH) {
@@ -140,7 +146,7 @@ public class TitleExtractor {
      * @return The extracted title, or empty string if not found
      */
     private String extractTitleFromAriaLabel(Element eventCard) {
-        Elements linksWithAria = eventCard.select("a[aria-label]");
+        Elements linksWithAria = eventCard.select(ARIA_LABEL);
         for (Element link : linksWithAria) {
             String ariaLabel = link.attr("aria-label").trim();
             if (ariaLabel.length() > MIN_TITLE_LENGTH) {

@@ -1,5 +1,26 @@
 package visitraleigh.events.feed;
 
+import static visitraleigh.events.feed.RssElementNames.CHANNEL;
+import static visitraleigh.events.feed.RssElementNames.DESCRIPTION;
+import static visitraleigh.events.feed.RssElementNames.ENCLOSURE;
+import static visitraleigh.events.feed.RssElementNames.ENCODING_UTF8;
+import static visitraleigh.events.feed.RssElementNames.GUID;
+import static visitraleigh.events.feed.RssElementNames.IMAGE_JPEG_TYPE;
+import static visitraleigh.events.feed.RssElementNames.INDENT_AMOUNT;
+import static visitraleigh.events.feed.RssElementNames.ITEM;
+import static visitraleigh.events.feed.RssElementNames.LANGUAGE;
+import static visitraleigh.events.feed.RssElementNames.LANGUAGE_VALUE;
+import static visitraleigh.events.feed.RssElementNames.LAST_BUILD_DATE;
+import static visitraleigh.events.feed.RssElementNames.LINK;
+import static visitraleigh.events.feed.RssElementNames.PUB_DATE;
+import static visitraleigh.events.feed.RssElementNames.RSS;
+import static visitraleigh.events.feed.RssElementNames.RSS_VERSION;
+import static visitraleigh.events.feed.RssElementNames.TITLE;
+import static visitraleigh.events.feed.RssElementNames.TYPE_ATTR;
+import static visitraleigh.events.feed.RssElementNames.URL_ATTR;
+import static visitraleigh.events.feed.RssElementNames.VERSION_ATTR;
+import static visitraleigh.events.feed.RssElementNames.XSLT_INDENT_PROPERTY;
+
 import java.io.File;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -68,7 +89,7 @@ public class RssFeedManagerImpl implements RssFeedManager {
         DocumentBuilder builder = factory.newDocumentBuilder();
         Document doc = builder.parse(rssFile);
 
-        NodeList guidNodes = doc.getElementsByTagName("guid");
+        NodeList guidNodes = doc.getElementsByTagName(GUID);
         Set<String> guids = new HashSet<>();
 
         for (int i = 0; i < guidNodes.getLength(); i++) {
@@ -97,19 +118,19 @@ public class RssFeedManagerImpl implements RssFeedManager {
         Document doc = builder.newDocument();
 
         // Build RSS structure
-        Element rss = doc.createElement("rss");
-        rss.setAttribute("version", "2.0");
+        Element rss = doc.createElement(RSS);
+        rss.setAttribute(VERSION_ATTR, RSS_VERSION);
         doc.appendChild(rss);
 
-        Element channel = doc.createElement("channel");
+        Element channel = doc.createElement(CHANNEL);
         rss.appendChild(channel);
 
         // Add channel metadata
-        addElement(doc, channel, "title", channelTitle);
-        addElement(doc, channel, "link", channelLink);
-        addElement(doc, channel, "description", channelDescription);
-        addElement(doc, channel, "language", "en-us");
-        addElement(doc, channel, "lastBuildDate",
+        addElement(doc, channel, TITLE, channelTitle);
+        addElement(doc, channel, LINK, channelLink);
+        addElement(doc, channel, DESCRIPTION, channelDescription);
+        addElement(doc, channel, LANGUAGE, LANGUAGE_VALUE);
+        addElement(doc, channel, LAST_BUILD_DATE,
                 ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME));
 
         // Add new events (sorted by ID, descending)
@@ -122,7 +143,7 @@ public class RssFeedManagerImpl implements RssFeedManager {
         int droppedEventsCount = importExistingEvents(filePath, builder, doc, channel);
 
         // Log statistics
-        NodeList items = doc.getElementsByTagName("item");
+        NodeList items = doc.getElementsByTagName(ITEM);
         Optional<ZonedDateTime> oldestDate = eventFilter.findLastPubDate(items);
         eventFilter.logFeedStatistics(items.getLength(), droppedEventsCount,
                 oldestDate.orElse(null));
@@ -155,7 +176,7 @@ public class RssFeedManagerImpl implements RssFeedManager {
 
         Document oldDoc = builder.parse(oldFile);
         oldDoc.getDocumentElement().normalize();
-        NodeList oldItems = oldDoc.getElementsByTagName("item");
+        NodeList oldItems = oldDoc.getElementsByTagName(ITEM);
 
         LOG.info("Importing {} existing events from feed", oldItems.getLength());
 
@@ -189,8 +210,8 @@ public class RssFeedManagerImpl implements RssFeedManager {
         TransformerFactory transformerFactory = securityConfigurer.createSecureTransformerFactory();
         Transformer transformer = transformerFactory.newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-        transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-        transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+        transformer.setOutputProperty(XSLT_INDENT_PROPERTY, INDENT_AMOUNT);
+        transformer.setOutputProperty(OutputKeys.ENCODING, ENCODING_UTF8);
 
         DOMSource source = new DOMSource(doc);
         StreamResult result = new StreamResult(new File(filePath));
@@ -235,20 +256,20 @@ public class RssFeedManagerImpl implements RssFeedManager {
      * @param event The event to add
      */
     private void addEventItem(Document doc, Element channel, EventItem event) {
-        Element item = doc.createElement("item");
+        Element item = doc.createElement(ITEM);
         channel.appendChild(item);
 
-        addElement(doc, item, "title", event.title());
-        addElement(doc, item, "link", event.link());
-        addElement(doc, item, "description", event.description());
-        addElement(doc, item, "guid", event.guid());
-        addElement(doc, item, "pubDate",
+        addElement(doc, item, TITLE, event.title());
+        addElement(doc, item, LINK, event.link());
+        addElement(doc, item, DESCRIPTION, event.description());
+        addElement(doc, item, GUID, event.guid());
+        addElement(doc, item, PUB_DATE,
                 ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME));
 
         if (!event.imageUrl().isEmpty()) {
-            Element enclosure = doc.createElement("enclosure");
-            enclosure.setAttribute("url", event.imageUrl());
-            enclosure.setAttribute("type", "image/jpeg");
+            Element enclosure = doc.createElement(ENCLOSURE);
+            enclosure.setAttribute(URL_ATTR, event.imageUrl());
+            enclosure.setAttribute(TYPE_ATTR, IMAGE_JPEG_TYPE);
             item.appendChild(enclosure);
         }
     }

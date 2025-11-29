@@ -1,5 +1,12 @@
 package visitraleigh.events.parser.raleigh;
 
+import static visitraleigh.events.parser.raleigh.CssSelectors.ARTICLE_TAG;
+import static visitraleigh.events.parser.raleigh.CssSelectors.CARD_CLASS_PATTERN;
+import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_CLASS_PATTERN;
+import static visitraleigh.events.parser.raleigh.CssSelectors.ITEM_CLASS_PATTERN;
+import static visitraleigh.events.parser.raleigh.CssSelectors.LISTING_CLASS_PATTERN;
+import static visitraleigh.events.parser.raleigh.CssSelectors.RESULT_CLASS_PATTERN;
+
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,12 +81,12 @@ public class EventCardFinder {
         String className = element.className().toLowerCase();
         String tagName = element.tagName().toLowerCase();
 
-        boolean isContainer = className.contains("event")
-                || className.contains("card")
-                || className.contains("result")
-                || className.contains("listing")
-                || className.contains("item")
-                || tagName.equals("article");
+        boolean isContainer = className.contains(EVENT_CLASS_PATTERN)
+                || className.contains(CARD_CLASS_PATTERN)
+                || className.contains(RESULT_CLASS_PATTERN)
+                || className.contains(LISTING_CLASS_PATTERN)
+                || className.contains(ITEM_CLASS_PATTERN)
+                || tagName.equals(ARTICLE_TAG);
 
         if (isContainer) {
             LOG.trace("Element matches container pattern: <{}> class='{}'",

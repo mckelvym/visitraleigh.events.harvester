@@ -1,5 +1,9 @@
 package visitraleigh.events.parser.raleigh;
 
+import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS;
+import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS_CAPITALIZED;
+import static visitraleigh.events.parser.raleigh.CssSelectors.TIME_ELEMENT;
+
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +28,8 @@ public class DateExtractor {
      * @return The extracted date string, or empty string if not found
      */
     public String extractDate(Element eventCard) {
-        Element dateElement = eventCard.selectFirst("time, [class*='date'], [class*='Date']");
+        Element dateElement = eventCard.selectFirst(
+                TIME_ELEMENT + ", " + DATE_CLASS + ", " + DATE_CLASS_CAPITALIZED);
 
         if (dateElement != null) {
             String dateText = dateElement.text().trim();
