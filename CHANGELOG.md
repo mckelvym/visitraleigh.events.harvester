@@ -1,3 +1,9 @@
+# Changes since 1.3.0
+
+- build.gradle reorganize and make more consistent
+- Rename some classes to be more general
+- Update changelog script
+
 # Changes since 1.2.0
 
 - Refactor to a more modular project and class structure and include tests
