@@ -21,12 +21,11 @@ dependencies {
     // Logging
     implementation 'org.slf4j:slf4j-api:2.0.17'
     implementation 'org.slf4j:jul-to-slf4j:2.0.17' // SLF4J-JUL bridge
+    implementation 'ch.qos.logback:logback-classic:1.5.21'
 
     // Selenium for JavaScript-rendered content
     implementation 'org.seleniumhq.selenium:selenium-java:4.38.0'
     implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.38.0'
-
-    runtimeOnly 'ch.qos.logback:logback-classic:1.5.21'
 
     testImplementation 'org.junit.jupiter:junit-jupiter:6.0.1'
     testImplementation 'org.mockito:mockito-core:5.20.0'
@@ -35,8 +34,35 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
 application {
-    mainClassName = 'visitraleigh.events.RaleighEventsApplication'
+    mainClass = 'visitraleigh.events.RaleighEventsApplication'
+}
+
+// Configure the default run task
+run {
+    if (project.hasProperty('args')) {
+        args project.property('args')
+    } else {
+        args 'events.xml'
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.deprecation = true
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
 }
 
 // Checkstyle configuration
@@ -67,28 +93,6 @@ tasks.named('spotbugsTest') {
     enabled = false
 }
 
-// Configure the default run task
-run {
-    if (project.hasProperty('args')) {
-        args project.property('args')
-    } else {
-        args 'events.xml'
-    }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-    options.deprecation = true
-}
-
-test {
-    useJUnitPlatform()
-    testLogging {
-        events "passed", "skipped", "failed"
-        exceptionFormat "full"
-    }
-}
-
 jib {
     from {
         image = 'seleniarm/standalone-chromium:latest'  // Alternative base
@@ -104,6 +108,12 @@ jib {
         }
     }
     container {
-        mainClass = 'visitraleigh.events.RaleighEventsApplication'
+        mainClass = application.mainClass
+        args = ['events.xml']
+        jvmFlags = [
+                '-XX:+UseContainerSupport',
+                '-XX:MaxRAMPercentage=75.0'
+        ]
+        creationTime = 'USE_CURRENT_TIMESTAMP'
     }
 }
