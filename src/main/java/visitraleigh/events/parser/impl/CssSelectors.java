@@ -1,4 +1,4 @@
-package visitraleigh.events.parser.raleigh;
+package visitraleigh.events.parser.impl;
 
 /**
  * Constants for CSS selectors used in HTML parsing.

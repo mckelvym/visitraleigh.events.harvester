@@ -5,14 +5,14 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import visitraleigh.events.config.ScraperConfiguration;
-import visitraleigh.events.config.raleigh.RaleighScraperConfiguration;
+import visitraleigh.events.config.impl.ScraperConfigurationImpl;
 import visitraleigh.events.domain.EventItem;
 import visitraleigh.events.feed.RssFeedManager;
 import visitraleigh.events.feed.RssFeedManagerImpl;
 import visitraleigh.events.parser.EventParser;
-import visitraleigh.events.parser.raleigh.RaleighEventParser;
+import visitraleigh.events.parser.impl.EventParserImpl;
 import visitraleigh.events.scraper.EventScraper;
-import visitraleigh.events.scraper.raleigh.RaleighEventScraper;
+import visitraleigh.events.scraper.impl.EventScraperImpl;
 import visitraleigh.events.webdriver.ChromeDriverManager;
 import visitraleigh.events.webdriver.WebDriverManager;
 
@@ -34,14 +34,14 @@ import visitraleigh.events.webdriver.WebDriverManager;
  *
  * <p>Usage:
  * <pre>{@code
- * java visitraleigh.events.RaleighEventsApplication <rss-file-path>
+ * java visitraleigh.events.EventsHarvesterApplication <rss-file-path>
  * }</pre>
  */
-public final class RaleighEventsApplication {
+public final class EventsHarvesterApplication {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RaleighEventsApplication.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EventsHarvesterApplication.class);
 
-    private RaleighEventsApplication() {
+    private EventsHarvesterApplication() {
         // utility
     }
 
@@ -56,7 +56,7 @@ public final class RaleighEventsApplication {
         org.slf4j.bridge.SLF4JBridgeHandler.install();
 
         if (args.length < 1) {
-            LOG.error("Usage: RaleighEventsApplication <rss-file-path>");
+            LOG.error("Usage: EventsHarvesterApplication <rss-file-path>");
             System.exit(1);
         }
 
@@ -65,15 +65,15 @@ public final class RaleighEventsApplication {
         LOG.info("Output file: {}", rssFilePath);
 
         // Manual dependency injection - create all components
-        ScraperConfiguration config = new RaleighScraperConfiguration();
+        ScraperConfiguration config = new ScraperConfigurationImpl();
         WebDriverManager driverManager = new ChromeDriverManager(
                 config.getUserAgent(),
                 config.getWindowSize());
-        EventParser parser = new RaleighEventParser(config.isDebugMode());
+        EventParser parser = new EventParserImpl(config.isDebugMode());
         RssFeedManager feedManager = new RssFeedManagerImpl(
                 config.getDropEventsOlderThanDays());
 
-        try (EventScraper scraper = new RaleighEventScraper(config, driverManager, parser)) {
+        try (EventScraper scraper = new EventScraperImpl(config, driverManager, parser)) {
             // Execute workflow
             LOG.info("Phase 1: Loading existing feed...");
             Set<String> existingGuids = feedManager.loadExistingGuids(rssFilePath);

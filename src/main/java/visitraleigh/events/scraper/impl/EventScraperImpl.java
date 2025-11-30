@@ -1,4 +1,4 @@
-package visitraleigh.events.scraper.raleigh;
+package visitraleigh.events.scraper.impl;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,9 +35,9 @@ import visitraleigh.events.webdriver.WebDriverManager;
  * <p>This class follows the Template Method pattern, with the main algorithm
  * defined in {@link #scrapeEvents(Set)} and helper methods handling specific steps.
  */
-public class RaleighEventScraper implements EventScraper {
+public class EventScraperImpl implements EventScraper {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RaleighEventScraper.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EventScraperImpl.class);
 
     private final ScraperConfiguration config;
     private final WebDriverManager driverManager;
@@ -54,7 +54,7 @@ public class RaleighEventScraper implements EventScraper {
      * @param parser The event parser
      * @throws NullPointerException if any parameter is null
      */
-    public RaleighEventScraper(
+    public EventScraperImpl(
             ScraperConfiguration config,
             WebDriverManager driverManager,
             EventParser parser) {

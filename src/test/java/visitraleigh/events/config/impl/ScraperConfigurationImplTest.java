@@ -1,4 +1,4 @@
-package visitraleigh.events.config.raleigh;
+package visitraleigh.events.config.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -9,13 +9,13 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for RaleighScraperConfiguration.
  */
-class RaleighScraperConfigurationTest {
+class ScraperConfigurationImplTest {
 
-    private RaleighScraperConfiguration config;
+    private ScraperConfigurationImpl config;
 
     @BeforeEach
     void setUp() {
-        config = new RaleighScraperConfiguration();
+        config = new ScraperConfigurationImpl();
     }
 
     @Test

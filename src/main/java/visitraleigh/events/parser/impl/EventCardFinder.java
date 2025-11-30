@@ -1,12 +1,12 @@
-package visitraleigh.events.parser.raleigh;
+package visitraleigh.events.parser.impl;
 
 import static java.util.Objects.requireNonNull;
-import static visitraleigh.events.parser.raleigh.CssSelectors.ARTICLE_TAG;
-import static visitraleigh.events.parser.raleigh.CssSelectors.CARD_CLASS_PATTERN;
-import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_CLASS_PATTERN;
-import static visitraleigh.events.parser.raleigh.CssSelectors.ITEM_CLASS_PATTERN;
-import static visitraleigh.events.parser.raleigh.CssSelectors.LISTING_CLASS_PATTERN;
-import static visitraleigh.events.parser.raleigh.CssSelectors.RESULT_CLASS_PATTERN;
+import static visitraleigh.events.parser.impl.CssSelectors.ARTICLE_TAG;
+import static visitraleigh.events.parser.impl.CssSelectors.CARD_CLASS_PATTERN;
+import static visitraleigh.events.parser.impl.CssSelectors.EVENT_CLASS_PATTERN;
+import static visitraleigh.events.parser.impl.CssSelectors.ITEM_CLASS_PATTERN;
+import static visitraleigh.events.parser.impl.CssSelectors.LISTING_CLASS_PATTERN;
+import static visitraleigh.events.parser.impl.CssSelectors.RESULT_CLASS_PATTERN;
 
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;

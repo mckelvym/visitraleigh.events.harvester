@@ -1,4 +1,4 @@
-package visitraleigh.events.scraper.raleigh;
+package visitraleigh.events.scraper.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

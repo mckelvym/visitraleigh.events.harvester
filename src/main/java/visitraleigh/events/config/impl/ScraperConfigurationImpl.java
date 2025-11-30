@@ -1,4 +1,4 @@
-package visitraleigh.events.config.raleigh;
+package visitraleigh.events.config.impl;
 
 import java.time.Duration;
 import java.time.ZonedDateTime;
@@ -21,10 +21,10 @@ import visitraleigh.events.config.ScraperConfiguration;
  *   <li>DROP_EVENTS_OLDER_THAN_DAYS - Age threshold for dropping events (default: 30)</li>
  * </ul>
  */
-public class RaleighScraperConfiguration implements ScraperConfiguration {
+public class ScraperConfigurationImpl implements ScraperConfiguration {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(RaleighScraperConfiguration.class);
+            LoggerFactory.getLogger(ScraperConfigurationImpl.class);
 
     // Site-specific constants
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
@@ -57,7 +57,7 @@ public class RaleighScraperConfiguration implements ScraperConfiguration {
      * date range for event scraping. If environment variables are not set
      * or are invalid, default values are used.
      */
-    public RaleighScraperConfiguration() {
+    public ScraperConfigurationImpl() {
         this.daysIntoFuture = getDaysIntoFutureFromEnv();
         this.dropEventsOlderThanDays = getDropEventsOlderThanDaysFromEnv();
     }
