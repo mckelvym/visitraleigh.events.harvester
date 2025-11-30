@@ -68,7 +68,7 @@ public class ChromeDriverManager implements WebDriverManager {
             options.addArguments(USER_AGENT_PREFIX + userAgent);
 
             driver = new ChromeDriver(options);
-            LOG.info("Chrome WebDriver initialized successfully");
+            LOG.info("Chrome WebDriver initialized in headless mode");
         }
         return driver;
     }
