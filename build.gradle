@@ -40,7 +40,7 @@ java {
 }
 
 application {
-    mainClass = 'visitraleigh.events.RaleighEventsApplication'
+    mainClass = 'visitraleigh.events.EventsHarvesterApplication'
 }
 
 // Configure the default run task

@@ -1,8 +1,8 @@
-package visitraleigh.events.parser.raleigh;
+package visitraleigh.events.parser.impl;
 
 import static java.util.Objects.requireNonNull;
-import static visitraleigh.events.parser.raleigh.CssSelectors.ICON_FILTER;
-import static visitraleigh.events.parser.raleigh.CssSelectors.LOGO_FILTER;
+import static visitraleigh.events.parser.impl.CssSelectors.ICON_FILTER;
+import static visitraleigh.events.parser.impl.CssSelectors.LOGO_FILTER;
 
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;

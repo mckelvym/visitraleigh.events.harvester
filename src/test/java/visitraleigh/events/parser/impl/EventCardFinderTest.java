@@ -1,4 +1,4 @@
-package visitraleigh.events.parser.raleigh;
+package visitraleigh.events.parser.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

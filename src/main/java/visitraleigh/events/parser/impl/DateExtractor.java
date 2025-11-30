@@ -1,9 +1,9 @@
-package visitraleigh.events.parser.raleigh;
+package visitraleigh.events.parser.impl;
 
 import static java.util.Objects.requireNonNull;
-import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS;
-import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_CLASS_CAPITALIZED;
-import static visitraleigh.events.parser.raleigh.CssSelectors.TIME_ELEMENT;
+import static visitraleigh.events.parser.impl.CssSelectors.DATE_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.DATE_CLASS_CAPITALIZED;
+import static visitraleigh.events.parser.impl.CssSelectors.TIME_ELEMENT;
 
 import org.jsoup.nodes.Element;
 import org.slf4j.Logger;

@@ -1,4 +1,4 @@
-package visitraleigh.events.parser.raleigh;
+package visitraleigh.events.parser.impl;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,9 +28,9 @@ import visitraleigh.events.parser.EventParser;
  *   <li>Returns EventItem with all extracted information</li>
  * </ol>
  */
-public class RaleighEventParser implements EventParser {
+public class EventParserImpl implements EventParser {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RaleighEventParser.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EventParserImpl.class);
 
     private final EventCardFinder cardFinder;
     private final TitleExtractor titleExtractor;
@@ -44,7 +44,7 @@ public class RaleighEventParser implements EventParser {
      *
      * @param debugMode Whether to enable debug logging
      */
-    public RaleighEventParser(boolean debugMode) {
+    public EventParserImpl(boolean debugMode) {
         this.cardFinder = new EventCardFinder();
         this.titleExtractor = new TitleExtractor();
         this.dateExtractor = new DateExtractor();

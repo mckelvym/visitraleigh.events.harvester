@@ -57,7 +57,7 @@ visitraleigh.events/
 - scraper/             # Event scraping logic
 - parser/              # HTML parsing & extraction
 - feed/                # RSS feed generation
-- RaleighEventsApplication.java  # Main entry point
+- EventsHarvesterApplication.java  # Main entry point
 
 ### Key Design Patterns
 

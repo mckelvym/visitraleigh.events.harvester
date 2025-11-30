@@ -1,18 +1,18 @@
-package visitraleigh.events.parser.raleigh;
+package visitraleigh.events.parser.impl;
 
 import static java.util.Objects.requireNonNull;
-import static visitraleigh.events.parser.raleigh.CssSelectors.BLOCK_META_CLASS;
-import static visitraleigh.events.parser.raleigh.CssSelectors.BLOCK_META_DIV;
-import static visitraleigh.events.parser.raleigh.CssSelectors.BR_TAG;
-import static visitraleigh.events.parser.raleigh.CssSelectors.DATE_INFO_CLASS;
-import static visitraleigh.events.parser.raleigh.CssSelectors.DESCRIPTION_CLASS;
-import static visitraleigh.events.parser.raleigh.CssSelectors.EXCERPT_CLASS;
-import static visitraleigh.events.parser.raleigh.CssSelectors.LOCATION_CLASS;
-import static visitraleigh.events.parser.raleigh.CssSelectors.PARAGRAPH;
-import static visitraleigh.events.parser.raleigh.CssSelectors.REGION_CLASS;
-import static visitraleigh.events.parser.raleigh.CssSelectors.REGION_TEXT;
-import static visitraleigh.events.parser.raleigh.CssSelectors.SPACE_SEPARATOR;
-import static visitraleigh.events.parser.raleigh.CssSelectors.TIMES_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.BLOCK_META_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.BLOCK_META_DIV;
+import static visitraleigh.events.parser.impl.CssSelectors.BR_TAG;
+import static visitraleigh.events.parser.impl.CssSelectors.DATE_INFO_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.DESCRIPTION_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.EXCERPT_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.LOCATION_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.PARAGRAPH;
+import static visitraleigh.events.parser.impl.CssSelectors.REGION_CLASS;
+import static visitraleigh.events.parser.impl.CssSelectors.REGION_TEXT;
+import static visitraleigh.events.parser.impl.CssSelectors.SPACE_SEPARATOR;
+import static visitraleigh.events.parser.impl.CssSelectors.TIMES_CLASS;
 
 import java.util.function.UnaryOperator;
 import org.jsoup.nodes.Element;

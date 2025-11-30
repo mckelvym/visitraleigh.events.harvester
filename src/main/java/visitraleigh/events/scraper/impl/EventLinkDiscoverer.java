@@ -1,7 +1,7 @@
-package visitraleigh.events.scraper.raleigh;
+package visitraleigh.events.scraper.impl;
 
 import static java.util.Objects.requireNonNull;
-import static visitraleigh.events.parser.raleigh.CssSelectors.EVENT_LINK;
+import static visitraleigh.events.parser.impl.CssSelectors.EVENT_LINK;
 
 import java.util.ArrayList;
 import java.util.HashSet;
