@@ -6,6 +6,7 @@
 - Move hardcoded strings to constants
 - Fail fast by requireNonNull for arguments expected to be non-null
 - Don't use instanceof
+- Clean up jib configuration and remove old RaleighEventsRSSGenerator
 
 # Changes since 1.1.0
 
