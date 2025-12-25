@@ -156,8 +156,12 @@ public class EventScraperImpl implements EventScraper {
         // Discover event links on the page
         List<Element> eventLinks = linkDiscoverer.discoverEventLinks(doc);
 
+        final int totalEvents = eventLinks.size();
+        int currentEvent = 0;
+
         // Parse each event link
         for (Element link : eventLinks) {
+            currentEvent++;
             Optional<EventItem> eventOpt = parser.parseEvent(link);
 
             if (eventOpt.isPresent()) {
@@ -165,10 +169,11 @@ public class EventScraperImpl implements EventScraper {
 
                 // Check if event already exists
                 if (!existingGuids.add(event.guid())) {
-                    LOG.info("Found existing event: {}", event.title());
+                    LOG.debug("Found existing event: {}", event.title());
                 } else {
                     newEvents.add(event);
-                    LOG.info("Found new event: {}", event.title());
+                    LOG.info("Event {}/{}: {}", currentEvent, totalEvents,
+                            event.title());
                 }
             }
         }
