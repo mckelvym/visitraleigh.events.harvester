@@ -61,7 +61,7 @@ public final class EventsHarvesterApplication {
         }
 
         String rssFilePath = args[0];
-        LOG.info("Starting Raleigh Events harvester...");
+        LOG.info("Starting Raleigh Events Harvester");
         LOG.info("Output file: {}", rssFilePath);
 
         // Manual dependency injection - create all components
@@ -75,13 +75,14 @@ public final class EventsHarvesterApplication {
 
         try (EventScraper scraper = new EventScraperImpl(config, driverManager, parser)) {
             // Execute workflow
-            LOG.info("Phase 1: Loading existing feed...");
+            LOG.info("Loading existing feed");
             Set<String> existingGuids = feedManager.loadExistingGuids(rssFilePath);
+            LOG.info("Found {} existing events", existingGuids.size());
 
-            LOG.info("Phase 2: Scraping events from {}...", config.getBaseUrl());
+            LOG.info("Starting event scraping");
             List<EventItem> newEvents = scraper.scrapeEvents(existingGuids);
 
-            LOG.info("Phase 3: Generating RSS feed...");
+            LOG.info("Generating RSS feed");
             feedManager.generateFeed(
                     rssFilePath,
                     newEvents,
@@ -90,6 +91,8 @@ public final class EventsHarvesterApplication {
                     "Events from Visit Raleigh");
 
             LOG.info("Successfully generated RSS feed with {} new events", newEvents.size());
+
+            LOG.info("Harvesting completed successfully");
             System.exit(0);
 
         } catch (Exception e) {
