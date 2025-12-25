@@ -1,3 +1,7 @@
+# 1.4.1
+
+- Update version.sh when two arguments are used in the changelog.sh script
+
 # 1.4.0
 
 - build.gradle reorganize and make more consistent
