@@ -107,6 +107,16 @@ else
 
     mv "$TEMP_FILE" "$CHANGELOG_FILE"
     echo "Created section: # $HEADING (changes since $FROM_TAG)"
+
+    # Update version.sh with the new tag
+    VERSION_FILE="scripts/version.sh"
+    if [ -f "$VERSION_FILE" ]; then
+        echo "export VERSION=$TO_TAG" > "$VERSION_FILE"
+        echo ""  >> "$VERSION_FILE"
+        echo "Updated $VERSION_FILE to VERSION=$TO_TAG"
+    else
+        echo "Warning: $VERSION_FILE not found, skipping version update"
+    fi
 fi
 
 cat "$CHANGELOG_FILE"
