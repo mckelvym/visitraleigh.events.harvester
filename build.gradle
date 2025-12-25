@@ -68,7 +68,7 @@ test {
 // Checkstyle configuration
 checkstyle {
     toolVersion = '12.1.2'
-    configFile = file("${rootProject.projectDir}/config/checkstyle/checkstyle.xml")
+    configFile = file("${projectDir}/config/checkstyle/checkstyle.xml")
     maxWarnings = 0
     maxErrors = 0
 }
