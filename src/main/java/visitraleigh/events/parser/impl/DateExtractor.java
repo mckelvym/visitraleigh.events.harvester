@@ -4,10 +4,9 @@ import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.impl.CssSelectors.DATE_CLASS;
 import static visitraleigh.events.parser.impl.CssSelectors.DATE_CLASS_CAPITALIZED;
 import static visitraleigh.events.parser.impl.CssSelectors.TIME_ELEMENT;
+import static visitraleigh.events.parser.impl.HtmlConstants.EMPTY;
 
 import org.jsoup.nodes.Element;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Extracts event dates from HTML elements.
@@ -18,29 +17,24 @@ import org.slf4j.LoggerFactory;
  *   <li>Elements with 'date' or 'Date' in class name</li>
  * </ul>
  */
-public class DateExtractor {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DateExtractor.class);
+public final class DateExtractor {
 
     /**
      * Extracts the date string from an event card element.
      *
-     * @param eventCard The event card container element
+     * @param eventElement The event card container element
      * @return The extracted date string, or empty string if not found
      * @throws NullPointerException if eventCard is null
      */
-    public String extractDate(Element eventCard) {
-        requireNonNull(eventCard, "eventCard must not be null");
-        Element dateElement = eventCard.selectFirst(
-                TIME_ELEMENT + ", " + DATE_CLASS + ", " + DATE_CLASS_CAPITALIZED);
+    public String extractDateString(Element eventElement) {
+        requireNonNull(eventElement, "eventCard must not be null");
+        Element dateElement = eventElement.selectFirst(
+            "%s, %s, %s".formatted(TIME_ELEMENT, DATE_CLASS, DATE_CLASS_CAPITALIZED));
 
-        if (dateElement != null) {
-            String dateText = dateElement.text().trim();
-            LOG.debug("Extracted date: {}", dateText);
-            return dateText;
+        if (dateElement == null) {
+            return EMPTY;
         }
 
-        LOG.debug("No date found in event card");
-        return "";
+        return dateElement.text().trim();
     }
 }

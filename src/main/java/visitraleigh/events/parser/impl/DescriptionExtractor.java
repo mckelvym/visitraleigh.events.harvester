@@ -3,21 +3,16 @@ package visitraleigh.events.parser.impl;
 import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.impl.CssSelectors.BLOCK_META_CLASS;
 import static visitraleigh.events.parser.impl.CssSelectors.BLOCK_META_DIV;
-import static visitraleigh.events.parser.impl.CssSelectors.BR_TAG;
 import static visitraleigh.events.parser.impl.CssSelectors.DATE_INFO_CLASS;
 import static visitraleigh.events.parser.impl.CssSelectors.DESCRIPTION_CLASS;
 import static visitraleigh.events.parser.impl.CssSelectors.EXCERPT_CLASS;
 import static visitraleigh.events.parser.impl.CssSelectors.LOCATION_CLASS;
 import static visitraleigh.events.parser.impl.CssSelectors.PARAGRAPH;
 import static visitraleigh.events.parser.impl.CssSelectors.REGION_CLASS;
-import static visitraleigh.events.parser.impl.CssSelectors.REGION_TEXT;
-import static visitraleigh.events.parser.impl.CssSelectors.SPACE_SEPARATOR;
 import static visitraleigh.events.parser.impl.CssSelectors.TIMES_CLASS;
 
 import java.util.function.UnaryOperator;
 import org.jsoup.nodes.Element;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Extracts event descriptions using fallback strategies.
@@ -28,9 +23,34 @@ import org.slf4j.LoggerFactory;
  *   <li>From generic description elements (p tags, description classes)</li>
  * </ol>
  */
-public class DescriptionExtractor {
+public final class DescriptionExtractor {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DescriptionExtractor.class);
+    private static final String BR_TAG = "<br/>";
+    // String constants for description parsing
+    private static final String REGION_TEXT = "region";
+    private static final String SPACE_SEPARATOR = " ";
+
+    /**
+     * Appends text from an element to the builder if present.
+     *
+     * @param builder  The StringBuilder to append to
+     * @param parent   The parent element to search in
+     * @param selector The CSS selector to find the element
+     * @param wrapper  A function to wrap the text (e.g., add <br/> tags)
+     */
+    private void appendTextIfPresent(StringBuilder builder, Element parent, String selector,
+                                     UnaryOperator<String> wrapper) {
+        Element element = parent.selectFirst(selector);
+        if (element != null) {
+            String text = element.text().trim();
+            if (!text.isEmpty()) {
+                builder.append(wrapper.apply(text));
+                if (!selector.contains(REGION_TEXT)) {
+                    builder.append(SPACE_SEPARATOR);
+                }
+            }
+        }
+    }
 
     /**
      * Extracts the description from an event card element.
@@ -38,22 +58,16 @@ public class DescriptionExtractor {
      * <p>First tries to extract from block-meta div, then falls back to
      * generic description elements.
      *
-     * @param eventCard The event card container element
+     * @param element The event card container element
      * @return The extracted description, or empty string if not found
-     * @throws NullPointerException if eventCard is null
+     * @throws NullPointerException if element is null
      */
-    public String extractDescription(Element eventCard) {
-        requireNonNull(eventCard, "eventCard must not be null");
-        String description = extractDescriptionFromBlockMeta(eventCard);
+    public String extract(Element element) {
+        requireNonNull(element, "element must not be null");
+        String description = extractDescriptionFromBlockMeta(element);
 
         if (description.isEmpty()) {
-            description = extractDescriptionFromFallback(eventCard);
-        }
-
-        if (!description.isEmpty()) {
-            LOG.debug("Extracted description ({} chars)", description.length());
-        } else {
-            LOG.debug("No description found in event card");
+            description = extractDescriptionFromFallback(element);
         }
 
         return description;
@@ -91,31 +105,6 @@ public class DescriptionExtractor {
     }
 
     /**
-     * Appends text from an element to the builder if present.
-     *
-     * @param builder The StringBuilder to append to
-     * @param parent The parent element to search in
-     * @param selector The CSS selector to find the element
-     * @param wrapper A function to wrap the text (e.g., add <br/> tags)
-     */
-    private void appendTextIfPresent(
-            StringBuilder builder,
-            Element parent,
-            String selector,
-            UnaryOperator<String> wrapper) {
-        Element element = parent.selectFirst(selector);
-        if (element != null) {
-            String text = element.text().trim();
-            if (!text.isEmpty()) {
-                builder.append(wrapper.apply(text));
-                if (!selector.contains(REGION_TEXT)) {
-                    builder.append(SPACE_SEPARATOR);
-                }
-            }
-        }
-    }
-
-    /**
      * Extracts description from generic description elements.
      *
      * <p>Looks for paragraph tags or elements with 'description' or 'excerpt'
@@ -126,7 +115,7 @@ public class DescriptionExtractor {
      */
     private String extractDescriptionFromFallback(Element eventCard) {
         Element descElement = eventCard.selectFirst(
-                PARAGRAPH + ", " + DESCRIPTION_CLASS + ", " + EXCERPT_CLASS);
+            PARAGRAPH + ", " + DESCRIPTION_CLASS + ", " + EXCERPT_CLASS);
         return descElement != null ? descElement.text().trim() : "";
     }
 }

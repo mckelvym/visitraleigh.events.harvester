@@ -41,23 +41,10 @@ public final class XmlSecurityFeatures {
             "http://apache.org/xml/features/nonvalidating/load-external-dtd";
 
     /**
-     * Attribute name for accessing external DTDs in transformers.
-     */
-    public static final String ACCESS_EXTERNAL_DTD = "http://javax.xml.XMLConstants/property"
-            + "/accessExternalDTD";
-
-    /**
-     * Attribute name for accessing external stylesheets in transformers.
-     */
-    public static final String ACCESS_EXTERNAL_STYLESHEET = "http://javax.xml.XMLConstants"
-            + "/property/accessExternalStylesheet";
-
-    /**
      * Empty string value used to restrict external access.
      */
     public static final String EMPTY_VALUE = "";
 
     private XmlSecurityFeatures() {
-        // Utility class - prevent instantiation
     }
 }

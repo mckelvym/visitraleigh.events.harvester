@@ -1,31 +1,55 @@
 package visitraleigh.events.domain;
 
+import java.time.LocalDate;
+import javax.annotation.Nullable;
+
+import static java.util.Objects.requireNonNull;
+
 /**
- * Represents a single event with all its metadata.
- *
- * <p>This is an immutable record that holds all information about an event,
- * including its ID, URL, title, description, and image. Events are comparable
- * by their ID for sorting purposes.
- *
- * @param id The unique identifier for the event
- * @param guid The globally unique identifier (typically the event URL)
- * @param title The event title
- * @param description The event description
- * @param link The link to the event
- * @param imageUrl The URL of the event's image
- * @param dateStr The date string for the event
+ * Immutable record representing an event item.
+ * Contains all metadata needed for RSS feed generation.
  */
 public record EventItem(
-        int id,
-        String guid,
-        String title,
-        String description,
-        String link,
-        String imageUrl,
-        String dateStr) implements Comparable<EventItem> {
+    String id,
+    String title,
+    String link,
+    @Nullable String description,
+    LocalDate eventDateStart,
+    @Nullable LocalDate eventDateEnd,
+    @Nullable String imageUrl,
+    @Nullable String location
+) {
+    /**
+     * Creates an EventItem with validation.
+     */
+    public EventItem {
+        requireNonNull(id, "id cannot be null");
+        requireNonNull(title, "title cannot be null");
+        requireNonNull(link, "link cannot be null");
+        requireNonNull(eventDateStart, "eventDateStart cannot be null");
+    }
 
-    @Override
-    public int compareTo(EventItem other) {
-        return Integer.compare(this.id, other.id);
+    /**
+     * Returns the GUID for RSS feed generation.
+     */
+    public String guid() {
+        return link;
+    }
+
+    /**
+     * Returns whether this event has an associated image.
+     */
+    public boolean hasImage() {
+        return imageUrl != null && !imageUrl.isBlank();
+    }
+
+    /**
+     * Returns a sanitized description suitable for RSS feed.
+     */
+    public String sanitizedDescription() {
+        if (description == null || description.isBlank()) {
+            return "";
+        }
+        return description.trim();
     }
 }

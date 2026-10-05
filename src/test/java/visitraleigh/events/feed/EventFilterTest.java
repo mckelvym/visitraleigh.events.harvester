@@ -1,206 +1,118 @@
 package visitraleigh.events.feed;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Optional;
+import javax.xml.parsers.DocumentBuilderFactory;
+import visitraleigh.events.config.impl.ScraperConfigurationImpl;
+import visitraleigh.events.domain.EventItem;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 class EventFilterTest {
 
+    private static final int RETENTION_DAYS =
+        new ScraperConfigurationImpl().getRetentionDays();
+    private static final LocalDate TODAY = LocalDate.now();
+    private static final LocalDate EXPIRED = TODAY.minusDays(RETENTION_DAYS + 1);
+    private static final LocalDate CUTOFF = TODAY.minusDays(RETENTION_DAYS);
+
+    private Document doc;
     private EventFilter filter;
-    private static final DateTimeFormatter RFC_1123 = DateTimeFormatter.RFC_1123_DATE_TIME;
+
+    private static EventItem event(final LocalDate start, final LocalDate end) {
+        return new EventItem("https://example.com/e", "Title", "https://example.com/e", null,
+            start, end, null, null);
+    }
+
+    private static String rfc1123(final LocalDate date) {
+        return date.atStartOfDay(ZoneOffset.UTC).format(DateTimeFormatter.RFC_1123_DATE_TIME);
+    }
+
+    private Element item(final String... tagsAndValues) {
+        final Element item = doc.createElement("item");
+        for (int i = 0; i < tagsAndValues.length; i += 2) {
+            final Element child = doc.createElement(tagsAndValues[i]);
+            child.setTextContent(tagsAndValues[i + 1]);
+            item.appendChild(child);
+        }
+        return item;
+    }
 
     @BeforeEach
-    void setUp() {
-        filter = new EventFilter(30);
+    void setUp() throws Exception {
+        doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
+        filter = new EventFilter(new ScraperConfigurationImpl());
     }
 
     @Test
-    void shouldKeepEvent_withRecentDate_returnsTrue() {
-        Node item = createMockItemWithDate(ZonedDateTime.now().minusDays(15));
-
-        boolean shouldKeep = filter.shouldKeepEvent(item);
-
-        assertThat(shouldKeep).isTrue();
+    void constructorRejectsNullConfig() {
+        assertThatThrownBy(() -> new EventFilter(null)).isInstanceOf(NullPointerException.class);
     }
 
     @Test
-    void shouldKeepEvent_withOldDate_returnsFalse() {
-        Node item = createMockItemWithDate(ZonedDateTime.now().minusDays(45));
-
-        boolean shouldKeep = filter.shouldKeepEvent(item);
-
-        assertThat(shouldKeep).isFalse();
+    void shouldKeepEventWithinRetention() {
+        assertThat(filter.shouldKeep(event(TODAY, null))).isTrue();
+        assertThat(filter.shouldKeep(event(CUTOFF, null))).isTrue();
+        assertThat(filter.shouldKeep(event(TODAY.plusDays(30), null))).isTrue();
     }
 
     @Test
-    void shouldKeepEvent_withTodayDate_returnsTrue() {
-        Node item = createMockItemWithDate(ZonedDateTime.now());
-
-        boolean shouldKeep = filter.shouldKeepEvent(item);
-
-        assertThat(shouldKeep).isTrue();
+    void shouldDropEventPastRetention() {
+        assertThat(filter.shouldKeep(event(EXPIRED, null))).isFalse();
     }
 
     @Test
-    void shouldKeepEvent_withExactlyCutoffDate_returnsFalse() {
-        Node item = createMockItemWithDate(ZonedDateTime.now().minusDays(30));
-
-        boolean shouldKeep = filter.shouldKeepEvent(item);
-
-        assertThat(shouldKeep).isFalse();
+    void shouldKeepMultiDayEventUntilItsEndDatePasses() {
+        assertThat(filter.shouldKeep(event(EXPIRED.minusDays(5), TODAY))).isTrue();
+        assertThat(filter.shouldKeep(event(EXPIRED.minusDays(5), EXPIRED))).isFalse();
     }
 
     @Test
-    void shouldKeepEvent_withNoPubDate_returnsTrue() {
-        Node item = mock(Node.class);
-        NodeList emptyChildren = mock(NodeList.class);
-        when(emptyChildren.getLength()).thenReturn(0);
-        when(item.getChildNodes()).thenReturn(emptyChildren);
-
-        boolean shouldKeep = filter.shouldKeepEvent(item);
-
-        assertThat(shouldKeep).isTrue();
+    void shouldKeepItemUsesEndDateBeforeStartDate() {
+        assertThat(filter.shouldKeep(item(RssElementNames.EV_STARTDATE, EXPIRED.toString(),
+            RssElementNames.EV_ENDDATE, TODAY.toString()))).isTrue();
+        assertThat(filter.shouldKeep(item(RssElementNames.EV_STARTDATE, TODAY.toString(),
+            RssElementNames.EV_ENDDATE, EXPIRED.toString()))).isFalse();
     }
 
     @Test
-    void shouldKeepEvent_withInvalidPubDate_returnsTrue() {
-        Node item = createMockItemWithInvalidDate();
-
-        boolean shouldKeep = filter.shouldKeepEvent(item);
-
-        assertThat(shouldKeep).isTrue();
+    void shouldKeepItemUsesStartDate() {
+        assertThat(filter.shouldKeep(item(RssElementNames.EV_STARTDATE, CUTOFF.toString())))
+            .isTrue();
+        assertThat(filter.shouldKeep(item(RssElementNames.EV_STARTDATE, EXPIRED.toString())))
+            .isFalse();
     }
 
     @Test
-    void extractPubDateFromItem_withValidDate_returnsDate() {
-        ZonedDateTime expectedDate = ZonedDateTime.now().minusDays(10);
-        Node item = createMockItemWithDate(expectedDate);
-
-        ZonedDateTime extractedDate = filter.extractPubDateFromItem(item);
-
-        assertThat(extractedDate).isNotNull();
-        assertThat(extractedDate.getDayOfYear()).isEqualTo(expectedDate.getDayOfYear());
+    void shouldKeepItemFallsBackToPubDateForLegacyItems() {
+        assertThat(filter.shouldKeep(item(RssElementNames.PUB_DATE, rfc1123(TODAY)))).isTrue();
+        assertThat(filter.shouldKeep(item(RssElementNames.PUB_DATE, rfc1123(EXPIRED)))).isFalse();
     }
 
     @Test
-    void extractPubDateFromItem_withNoDate_returnsNull() {
-        Node item = mock(Node.class);
-        NodeList emptyChildren = mock(NodeList.class);
-        when(emptyChildren.getLength()).thenReturn(0);
-        when(item.getChildNodes()).thenReturn(emptyChildren);
-
-        ZonedDateTime extractedDate = filter.extractPubDateFromItem(item);
-
-        assertThat(extractedDate).isNull();
+    void shouldKeepItemPrefersEventDateOverPubDate() {
+        assertThat(filter.shouldKeep(item(RssElementNames.PUB_DATE, rfc1123(EXPIRED),
+            RssElementNames.EV_STARTDATE, TODAY.toString()))).isTrue();
     }
 
     @Test
-    void extractPubDateFromItem_withInvalidDate_returnsNull() {
-        Node item = createMockItemWithInvalidDate();
-
-        ZonedDateTime extractedDate = filter.extractPubDateFromItem(item);
-
-        assertThat(extractedDate).isNull();
+    void shouldKeepItemWithoutParseableDate() {
+        assertThat(filter.shouldKeep(item())).isTrue();
+        assertThat(filter.shouldKeep(item(RssElementNames.EV_STARTDATE, "not a date"))).isTrue();
+        assertThat(filter.shouldKeep(item(RssElementNames.PUB_DATE, "garbage"))).isTrue();
     }
 
     @Test
-    void findLastPubDate_withItems_returnsLastDate() {
-        ZonedDateTime expectedDate = ZonedDateTime.now().minusDays(20);
-        Node lastItem = createMockItemWithDate(expectedDate);
-
-        NodeList items = mock(NodeList.class);
-        when(items.getLength()).thenReturn(5);
-        when(items.item(4)).thenReturn(lastItem);
-
-        Optional<ZonedDateTime> lastDate = filter.findLastPubDate(items);
-
-        assertThat(lastDate).isPresent();
-        assertThat(lastDate.get().getDayOfYear()).isEqualTo(expectedDate.getDayOfYear());
-    }
-
-    @Test
-    void findLastPubDate_withNoItems_returnsEmpty() {
-        NodeList items = mock(NodeList.class);
-        when(items.getLength()).thenReturn(0);
-
-        Optional<ZonedDateTime> lastDate = filter.findLastPubDate(items);
-
-        assertThat(lastDate).isEmpty();
-    }
-
-    @Test
-    void findLastPubDate_withLastItemHavingNoDate_returnsEmpty() {
-        Node lastItem = mock(Node.class);
-        NodeList emptyChildren = mock(NodeList.class);
-        when(emptyChildren.getLength()).thenReturn(0);
-        when(lastItem.getChildNodes()).thenReturn(emptyChildren);
-
-        NodeList items = mock(NodeList.class);
-        when(items.getLength()).thenReturn(1);
-        when(items.item(0)).thenReturn(lastItem);
-
-        Optional<ZonedDateTime> lastDate = filter.findLastPubDate(items);
-
-        assertThat(lastDate).isEmpty();
-    }
-
-    @Test
-    void constructor_with7Days_usesShorterCutoff() {
-        EventFilter shortFilter = new EventFilter(7);
-        Node recentItem = createMockItemWithDate(ZonedDateTime.now().minusDays(10));
-
-        boolean shouldKeep = shortFilter.shouldKeepEvent(recentItem);
-
-        assertThat(shouldKeep).isFalse();
-    }
-
-    @Test
-    void constructor_with90Days_usesLongerCutoff() {
-        EventFilter longFilter = new EventFilter(90);
-        Node oldItem = createMockItemWithDate(ZonedDateTime.now().minusDays(60));
-
-        boolean shouldKeep = longFilter.shouldKeepEvent(oldItem);
-
-        assertThat(shouldKeep).isTrue();
-    }
-
-    private Node createMockItemWithDate(ZonedDateTime date) {
-        String dateStr = date.format(RFC_1123);
-
-        Node pubDateNode = mock(Node.class);
-        when(pubDateNode.getNodeName()).thenReturn("pubDate");
-        when(pubDateNode.getTextContent()).thenReturn(dateStr);
-
-        NodeList children = mock(NodeList.class);
-        when(children.getLength()).thenReturn(1);
-        when(children.item(0)).thenReturn(pubDateNode);
-
-        Node item = mock(Node.class);
-        when(item.getChildNodes()).thenReturn(children);
-
-        return item;
-    }
-
-    private Node createMockItemWithInvalidDate() {
-        Node pubDateNode = mock(Node.class);
-        when(pubDateNode.getNodeName()).thenReturn("pubDate");
-        when(pubDateNode.getTextContent()).thenReturn("invalid date string");
-
-        NodeList children = mock(NodeList.class);
-        when(children.getLength()).thenReturn(1);
-        when(children.item(0)).thenReturn(pubDateNode);
-
-        Node item = mock(Node.class);
-        when(item.getChildNodes()).thenReturn(children);
-
-        return item;
+    void shouldKeepRejectsNull() {
+        assertThatThrownBy(() -> filter.shouldKeep((Element) null))
+            .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> filter.shouldKeep((EventItem) null))
+            .isInstanceOf(NullPointerException.class);
     }
 }

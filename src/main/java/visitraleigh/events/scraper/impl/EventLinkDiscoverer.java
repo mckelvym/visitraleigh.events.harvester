@@ -2,6 +2,7 @@ package visitraleigh.events.scraper.impl;
 
 import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.impl.CssSelectors.EVENT_LINK;
+import static visitraleigh.events.parser.impl.HtmlConstants.ABS_HREF_ATTR;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -26,24 +27,13 @@ import org.slf4j.LoggerFactory;
  *   <li>Returns unique, valid event link elements</li>
  * </ul>
  */
-public class EventLinkDiscoverer {
+public record EventLinkDiscoverer(Pattern eventUrlPattern, String hostFilter) {
 
     private static final Logger LOG = LoggerFactory.getLogger(EventLinkDiscoverer.class);
 
-    private final Pattern eventUrlPattern;
-    private final String hostFilter;
-
-    /**
-     * Creates a new event link discoverer.
-     *
-     * @param eventUrlPattern The regex pattern for validating event URLs
-     * @param hostFilter The host string that must appear in valid URLs
-     *                   (e.g., "visitraleigh.com/event/")
-     * @throws NullPointerException if eventUrlPattern or hostFilter is null
-     */
-    public EventLinkDiscoverer(Pattern eventUrlPattern, String hostFilter) {
-        this.eventUrlPattern = requireNonNull(eventUrlPattern, "eventUrlPattern must not be null");
-        this.hostFilter = requireNonNull(hostFilter, "hostFilter must not be null");
+    public EventLinkDiscoverer {
+        requireNonNull(eventUrlPattern, "eventUrlPattern must not be null");
+        requireNonNull(hostFilter, "hostFilter must not be null");
     }
 
     /**
@@ -59,22 +49,20 @@ public class EventLinkDiscoverer {
     public List<Element> discoverEventLinks(Document doc) {
         requireNonNull(doc, "doc must not be null");
         Elements allLinks = doc.select(EVENT_LINK);
-        LOG.debug("Found {} links containing '/event/'", allLinks.size());
 
         List<Element> eventLinks = new ArrayList<>();
         Set<String> processedUrls = new HashSet<>();
 
         for (Element link : allLinks) {
-            String href = link.attr("abs:href");
+            String href = link.attr(ABS_HREF_ATTR);
 
             if (shouldProcessEventLink(href, processedUrls)) {
                 processedUrls.add(href);
                 eventLinks.add(link);
-                LOG.debug("Discovered event link: {}", href);
             }
         }
 
-        LOG.info("Discovered {} unique event links on page", eventLinks.size());
+        LOG.info("Discovered {} event links on page", eventLinks.size());
         return eventLinks;
     }
 
@@ -88,7 +76,7 @@ public class EventLinkDiscoverer {
      *   <li>It matches the event URL pattern</li>
      * </ul>
      *
-     * @param href The absolute href to check
+     * @param href          The absolute href to check
      * @param processedUrls Set of already processed URLs
      * @return true if the link should be processed, false otherwise
      */
@@ -100,16 +88,10 @@ public class EventLinkDiscoverer {
 
         // Check if contains host filter
         if (!href.contains(hostFilter)) {
-            LOG.trace("Skipping link (wrong host): {}", href);
             return false;
         }
 
         // Check if matches event URL pattern
-        if (!eventUrlPattern.matcher(href).find()) {
-            LOG.trace("Skipping link (pattern mismatch): {}", href);
-            return false;
-        }
-
-        return true;
+        return eventUrlPattern.matcher(href).find();
     }
 }

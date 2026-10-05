@@ -35,7 +35,7 @@ import javax.xml.transform.TransformerFactory;
  * @see <a href="https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing">
  *      OWASP XXE Prevention</a>
  */
-public class XmlSecurityConfigurer {
+public final class XmlSecurityConfigurer {
 
     /**
      * Creates a secure DocumentBuilderFactory with XXE protection.

@@ -33,7 +33,7 @@ Feed exported to [https://github.com/mckelvym/visitraleigh.events.rss](https://g
 ### Build Image
 
 ```bash
-./gradlew jib -Djib.to.image=docker-registry-image-name:tag
+source scripts/version.sh && ./gradlew jib -Djib.to.image=$IMAGE:$VERSION
 ```
 
 ### Run Container

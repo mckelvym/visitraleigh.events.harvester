@@ -1,12 +1,10 @@
 package visitraleigh.events.parser.impl;
 
 import static java.util.Objects.requireNonNull;
-import static visitraleigh.events.parser.impl.CssSelectors.ICON_FILTER;
-import static visitraleigh.events.parser.impl.CssSelectors.LOGO_FILTER;
+import static visitraleigh.events.parser.impl.CssSelectors.IMG_SRC;
+import static visitraleigh.events.parser.impl.HtmlConstants.EMPTY;
 
 import org.jsoup.nodes.Element;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Extracts event image URLs with filtering.
@@ -14,9 +12,12 @@ import org.slf4j.LoggerFactory;
  * <p>This class extracts image URLs from event cards while filtering out
  * common non-event images like icons and logos.
  */
-public class ImageExtractor {
+public final class ImageExtractor {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ImageExtractor.class);
+    private static final String ABS_SRC = "abs:src";
+    // Image filter patterns (used for URL filtering, not CSS selectors)
+    private static final String ICON_FILTER = "icon";
+    private static final String LOGO_FILTER = "logo";
     private static final int MIN_IMAGE_URL_LENGTH = 20;
 
     /**
@@ -36,23 +37,19 @@ public class ImageExtractor {
      */
     public String extractImageUrl(Element eventCard) {
         requireNonNull(eventCard, "eventCard must not be null");
-        Element imgElement = eventCard.selectFirst("img[src]");
+        Element imgElement = eventCard.selectFirst(IMG_SRC);
 
         if (imgElement != null) {
-            String src = imgElement.attr("abs:src");
+            String src = imgElement.attr(ABS_SRC);
 
             // Filter out icons, logos, and short URLs
             if (!src.contains(ICON_FILTER)
-                    && !src.contains(LOGO_FILTER)
-                    && src.length() > MIN_IMAGE_URL_LENGTH) {
-                LOG.debug("Extracted image URL: {}", src);
+                && !src.contains(LOGO_FILTER)
+                && src.length() > MIN_IMAGE_URL_LENGTH) {
                 return src;
-            } else {
-                LOG.trace("Filtered out image URL: {} (icon/logo or too short)", src);
             }
         }
 
-        LOG.debug("No suitable image found in event card");
-        return "";
+        return EMPTY;
     }
 }

@@ -28,6 +28,16 @@ public final class RssElementNames {
     public static final String GUID = "guid";
     public static final String PUB_DATE = "pubDate";
 
+    // GUID attributes
+    public static final String IS_PERMALINK_ATTR = "isPermaLink";
+    public static final String TRUE_VALUE = "true";
+
+    // RSS Event module (http://purl.org/rss/1.0/modules/event/), used for retention
+    public static final String XMLNS_EV_ATTR = "xmlns:ev";
+    public static final String EVENT_NAMESPACE_URI = "http://purl.org/rss/1.0/modules/event/";
+    public static final String EV_STARTDATE = "ev:startdate";
+    public static final String EV_ENDDATE = "ev:enddate";
+
     // Enclosure (image) elements and attributes
     public static final String ENCLOSURE = "enclosure";
     public static final String URL_ATTR = "url";

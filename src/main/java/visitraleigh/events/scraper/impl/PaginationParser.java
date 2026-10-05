@@ -19,64 +19,30 @@ import org.slf4j.LoggerFactory;
  *
  * <p>If pagination cannot be determined, it falls back to a default value.
  */
-public class PaginationParser {
+public final class PaginationParser {
 
     private static final Logger LOG = LoggerFactory.getLogger(PaginationParser.class);
-
+    private final int defaultNumPages;
     private final String lastPageLinkSelector;
     private final Pattern numPagesPattern;
-    private final int defaultNumPages;
 
     /**
      * Creates a new pagination parser with the specified configuration.
      *
      * @param lastPageLinkSelector CSS selector for the last page link element
-     * @param numPagesPattern Regex pattern for extracting page numbers from URLs
-     * @param defaultNumPages Default number of pages if extraction fails
+     * @param numPagesPattern      Regex pattern for extracting page numbers from URLs
+     * @param defaultNumPages      Default number of pages if extraction fails
      * @throws NullPointerException if lastPageLinkSelector or numPagesPattern is null
      */
     public PaginationParser(
-            String lastPageLinkSelector,
-            Pattern numPagesPattern,
-            int defaultNumPages) {
+        String lastPageLinkSelector,
+        Pattern numPagesPattern,
+        int defaultNumPages) {
         this.lastPageLinkSelector = requireNonNull(lastPageLinkSelector,
-                "lastPageLinkSelector must not be null");
+            "lastPageLinkSelector must not be null");
         this.numPagesPattern = requireNonNull(numPagesPattern,
-                "numPagesPattern must not be null");
+            "numPagesPattern must not be null");
         this.defaultNumPages = defaultNumPages;
-    }
-
-    /**
-     * Extracts the number of pages from a document.
-     *
-     * <p>This method:
-     * <ol>
-     *   <li>Selects the last page navigation element using CSS selector</li>
-     *   <li>Extracts the href from the first child element</li>
-     *   <li>Parses the page number from the href using regex</li>
-     *   <li>Returns default value if any step fails</li>
-     * </ol>
-     *
-     * @param doc The JSoup document containing pagination controls
-     * @return The number of pages, or default value if extraction fails
-     * @throws NullPointerException if doc is null
-     */
-    public int getNumPages(Document doc) {
-        requireNonNull(doc, "doc must not be null");
-        Elements doubleArrow = doc.select(lastPageLinkSelector);
-        if (doubleArrow.isEmpty()) {
-            LOG.debug("No pagination element found, using default: {}", defaultNumPages);
-            return defaultNumPages;
-        }
-
-        String href = extractHrefFromPaginationElement(doubleArrow);
-        if (href == null) {
-            LOG.debug("No href found in pagination element, using default: {}",
-                    defaultNumPages);
-            return defaultNumPages;
-        }
-
-        return parsePageNumberFromHref(href);
     }
 
     /**
@@ -106,6 +72,39 @@ public class PaginationParser {
     }
 
     /**
+     * Extracts the number of pages from a document.
+     *
+     * <p>This method:
+     * <ol>
+     *   <li>Selects the last page navigation element using CSS selector</li>
+     *   <li>Extracts the href from the first child element</li>
+     *   <li>Parses the page number from the href using regex</li>
+     *   <li>Returns default value if any step fails</li>
+     * </ol>
+     *
+     * @param doc The JSoup document containing pagination controls
+     * @return The number of pages, or default value if extraction fails
+     * @throws NullPointerException if doc is null
+     */
+    public int getNumPages(Document doc) {
+        requireNonNull(doc, "doc must not be null");
+        Elements doubleArrow = doc.select(lastPageLinkSelector);
+        if (doubleArrow.isEmpty()) {
+            LOG.info("No pagination element found, using default: {}", defaultNumPages);
+            return defaultNumPages;
+        }
+
+        String href = extractHrefFromPaginationElement(doubleArrow);
+        if (href == null) {
+            LOG.info("No href found in pagination element, using default: {}",
+                defaultNumPages);
+            return defaultNumPages;
+        }
+
+        return parsePageNumberFromHref(href);
+    }
+
+    /**
      * Parses the page number from an href string using regex.
      *
      * @param href The href string containing the page parameter
@@ -115,14 +114,14 @@ public class PaginationParser {
         Matcher matcher = numPagesPattern.matcher(href);
 
         if (!matcher.find()) {
-            LOG.debug("No page parameter found in href: {}", href);
+            LOG.warn("No page parameter found in href: {}", href);
             return defaultNumPages;
         }
 
         String pageNumber = matcher.group(1);
         try {
             int num = Integer.parseInt(pageNumber);
-            LOG.debug("Extracted {} pages from pagination", num);
+            LOG.info("Extracted {} pages from pagination", num);
             return num;
         } catch (NumberFormatException e) {
             LOG.error("Failed to parse page number from: {}", pageNumber, e);

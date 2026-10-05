@@ -2,15 +2,8 @@ package visitraleigh.events.parser.impl;
 
 import static java.util.Objects.requireNonNull;
 import static visitraleigh.events.parser.impl.CssSelectors.ARTICLE_TAG;
-import static visitraleigh.events.parser.impl.CssSelectors.CARD_CLASS_PATTERN;
-import static visitraleigh.events.parser.impl.CssSelectors.EVENT_CLASS_PATTERN;
-import static visitraleigh.events.parser.impl.CssSelectors.ITEM_CLASS_PATTERN;
-import static visitraleigh.events.parser.impl.CssSelectors.LISTING_CLASS_PATTERN;
-import static visitraleigh.events.parser.impl.CssSelectors.RESULT_CLASS_PATTERN;
 
 import org.jsoup.nodes.Element;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Finds event card containers by traversing the DOM upward.
@@ -26,10 +19,15 @@ import org.slf4j.LoggerFactory;
  *   <li>There are no more parent elements</li>
  * </ul>
  */
-public class EventCardFinder {
+public final class EventCardFinder {
 
-    private static final Logger LOG = LoggerFactory.getLogger(EventCardFinder.class);
+    private static final String CARD_CLASS_PATTERN = "card";
+    // Container class name patterns (used for string matching, not CSS selectors)
+    private static final String EVENT_CLASS_PATTERN = "event";
+    private static final String ITEM_CLASS_PATTERN = "item";
+    private static final String LISTING_CLASS_PATTERN = "listing";
     private static final int MAX_TRAVERSAL_DEPTH = 10;
+    private static final String RESULT_CLASS_PATTERN = "result";
 
     /**
      * Finds the event card container for a given link element.
@@ -39,7 +37,7 @@ public class EventCardFinder {
      *
      * @param linkElement The link element to start from
      * @return The event card container element, or the last element checked
-     *         if no container is found
+     * if no container is found
      * @throws NullPointerException if linkElement is null
      */
     public Element findEventCardContainer(Element linkElement) {
@@ -49,21 +47,16 @@ public class EventCardFinder {
         for (int i = 0; i < MAX_TRAVERSAL_DEPTH; i++) {
             Element parent = current.parent();
             if (parent == null) {
-                LOG.debug("Reached root element after {} levels", i);
                 break;
             }
 
             if (isEventCardContainer(parent)) {
-                LOG.debug("Found event card container: <{}> with class '{}'",
-                        parent.tagName(), parent.className());
                 return parent;
             }
 
             current = parent;
         }
 
-        LOG.debug("No event card container found, using current element: <{}>",
-                current.tagName());
         return current;
     }
 
@@ -84,18 +77,8 @@ public class EventCardFinder {
         String className = element.className().toLowerCase();
         String tagName = element.tagName().toLowerCase();
 
-        boolean isContainer = className.contains(EVENT_CLASS_PATTERN)
-                || className.contains(CARD_CLASS_PATTERN)
-                || className.contains(RESULT_CLASS_PATTERN)
-                || className.contains(LISTING_CLASS_PATTERN)
-                || className.contains(ITEM_CLASS_PATTERN)
-                || tagName.equals(ARTICLE_TAG);
-
-        if (isContainer) {
-            LOG.trace("Element matches container pattern: <{}> class='{}'",
-                    tagName, className);
-        }
-
-        return isContainer;
+        return className.contains(EVENT_CLASS_PATTERN) || className.contains(CARD_CLASS_PATTERN)
+            || className.contains(RESULT_CLASS_PATTERN) || className.contains(LISTING_CLASS_PATTERN)
+            || className.contains(ITEM_CLASS_PATTERN) || tagName.equals(ARTICLE_TAG);
     }
 }
