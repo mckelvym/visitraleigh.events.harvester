@@ -1,6 +1,7 @@
 package visitraleigh.events.config;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.regex.Pattern;
 
 /**
@@ -24,13 +25,46 @@ public interface ScraperConfiguration {
     String getBaseUrl();
 
     /**
-     * Gets whether debug mode is enabled.
+     * Gets the RSS feed description.
      *
-     * <p>Debug mode enables verbose logging and saves HTML pages for inspection.
-     *
-     * @return true if debug mode is enabled, false otherwise
+     * @return the feed description
      */
-    boolean isDebugMode();
+    String getFeedDescription();
+
+    /**
+     * Gets the RSS feed link.
+     *
+     * @return the feed link
+     */
+    String getFeedLink();
+
+    /**
+     * Gets the RSS feed title.
+     *
+     * @return the feed title
+     */
+    String getFeedTitle();
+
+    /**
+     * Gets the timeout duration for page loads.
+     *
+     * @return The timeout duration for waiting for pages to load
+     */
+    Duration getPageLoadTimeout();
+
+    /**
+     * Gets the number of days after which old events should be dropped from the feed.
+     *
+     * @return The number of days before events are considered too old
+     */
+    int getRetentionDays();
+
+    /**
+     * Gets the user agent string to use for web scraping.
+     *
+     * @return The user agent string
+     */
+    String getUserAgent();
 
     /**
      * Gets the default number of pages to scrape if pagination detection fails.
@@ -47,11 +81,21 @@ public interface ScraperConfiguration {
     int getDaysIntoFuture();
 
     /**
-     * Gets the number of days after which old events should be dropped from the feed.
+     * Gets the end date for event scraping.
      *
-     * @return The number of days before events are considered too old
+     * <p>This is used to construct URLs with date parameters for filtering
+     * events that occur before a certain date.
+     *
+     * @return The end date as a LocalDate object
      */
-    int getDropEventsOlderThanDays();
+    LocalDate getEndDate();
+
+    /**
+     * Gets the regex pattern for validating event URLs.
+     *
+     * @return The regex pattern for event URL validation
+     */
+    Pattern getEventUrlPattern();
 
     /**
      * Gets the CSS selector for the last page link element in pagination.
@@ -68,40 +112,9 @@ public interface ScraperConfiguration {
     Pattern getNumPagesPattern();
 
     /**
-     * Gets the regex pattern for validating event URLs.
-     *
-     * @return The regex pattern for event URL validation
-     */
-    Pattern getEventUrlPattern();
-
-    /**
-     * Gets the timeout duration for page loads.
-     *
-     * @return The timeout duration for waiting for pages to load
-     */
-    Duration getPageLoadTimeout();
-
-    /**
-     * Gets the user agent string to use for web scraping.
-     *
-     * @return The user agent string
-     */
-    String getUserAgent();
-
-    /**
      * Gets the window size for the headless browser.
      *
      * @return The window size as "widthxheight" (e.g., "1920x1080")
      */
     String getWindowSize();
-
-    /**
-     * Gets the end date for event scraping.
-     *
-     * <p>This is used to construct URLs with date parameters for filtering
-     * events that occur before a certain date.
-     *
-     * @return The end date formatted as MM/dd/yyyy
-     */
-    String getEndDate();
 }

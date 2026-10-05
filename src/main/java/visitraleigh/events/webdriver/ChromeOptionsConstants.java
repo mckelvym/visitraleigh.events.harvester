@@ -39,6 +39,16 @@ public final class ChromeOptionsConstants {
     public static final String WINDOW_SIZE_PREFIX = "--window-size=";
 
     /**
+     * Default window size (1920x1080).
+     */
+    public static final String DEFAULT_WINDOW_SIZE = "1920,1080";
+
+    /**
+     * Full window size argument.
+     */
+    public static final String WINDOW_SIZE = WINDOW_SIZE_PREFIX + DEFAULT_WINDOW_SIZE;
+
+    /**
      * Prefix for user agent argument.
      * Followed by the custom user agent string.
      */

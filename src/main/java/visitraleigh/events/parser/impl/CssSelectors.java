@@ -40,21 +40,11 @@ public final class CssSelectors {
     public static final String DESCRIPTION_CLASS = "[class*='description']";
     public static final String EXCERPT_CLASS = "[class*='excerpt']";
 
-    // String constants for description parsing
-    public static final String REGION_TEXT = "region";
-    public static final String SPACE_SEPARATOR = " ";
-    public static final String BR_TAG = "<br/>";
+    // Pagination selectors
+    public static final String LAST_PAGE_LINK_ELEMENT = "li.arrow.arrow-next.arrow-double";
 
-    // Container class name patterns (used for string matching, not CSS selectors)
-    public static final String EVENT_CLASS_PATTERN = "event";
-    public static final String CARD_CLASS_PATTERN = "card";
-    public static final String RESULT_CLASS_PATTERN = "result";
-    public static final String LISTING_CLASS_PATTERN = "listing";
-    public static final String ITEM_CLASS_PATTERN = "item";
-
-    // Image filter patterns (used for URL filtering, not CSS selectors)
-    public static final String ICON_FILTER = "icon";
-    public static final String LOGO_FILTER = "logo";
+    // Image selectors
+    public static final String IMG_SRC = "img[src]";
 
     private CssSelectors() {
         // Utility class - prevent instantiation

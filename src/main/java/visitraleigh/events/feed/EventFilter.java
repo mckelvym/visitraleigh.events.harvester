@@ -1,131 +1,100 @@
 package visitraleigh.events.feed;
 
+import static java.util.Objects.requireNonNull;
+import static visitraleigh.events.feed.RssElementNames.EV_ENDDATE;
+import static visitraleigh.events.feed.RssElementNames.EV_STARTDATE;
 import static visitraleigh.events.feed.RssElementNames.PUB_DATE;
 
-import java.time.Duration;
-import java.time.ZonedDateTime;
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import visitraleigh.events.config.ScraperConfiguration;
+import visitraleigh.events.domain.EventItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.Node;
+import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 /**
- * Filters events by age and provides statistics.
+ * Applies the retention policy: an event is kept until {@code retentionDays} after it ends.
  *
- * <p>This class is responsible for:
- * <ul>
- *   <li>Filtering out events older than a configured threshold</li>
- *   <li>Extracting publication dates from RSS items</li>
- *   <li>Calculating event age statistics</li>
- * </ul>
+ * <p>The event date is the end date when present, otherwise the start date. Feed items
+ * carry these as RSS Event module elements ({@code ev:enddate}, {@code ev:startdate});
+ * items written before those elements existed fall back to {@code pubDate}. Items with
+ * no parseable date are kept.
  */
-public class EventFilter {
+public final class EventFilter {
 
     private static final Logger LOG = LoggerFactory.getLogger(EventFilter.class);
-    private static final DateTimeFormatter RFC_1123_FORMATTER =
-            DateTimeFormatter.RFC_1123_DATE_TIME;
-
-    private final int dropEventsOlderThanDays;
+    private final int retentionDays;
 
     /**
-     * Creates a new event filter with the specified age threshold.
+     * Creates a new EventFilter.
      *
-     * @param dropEventsOlderThanDays The number of days - events older than
-     *                                this are filtered out
+     * @param config scraper configuration providing the retention period
+     * @throws NullPointerException if config is null
      */
-    public EventFilter(int dropEventsOlderThanDays) {
-        this.dropEventsOlderThanDays = dropEventsOlderThanDays;
+    public EventFilter(final ScraperConfiguration config) {
+        requireNonNull(config, "config must not be null");
+        this.retentionDays = config.getRetentionDays();
     }
 
-    /**
-     * Determines whether an event should be kept based on its publication date.
-     *
-     * @param item The RSS item node
-     * @return true if the event should be kept, false if it should be dropped
-     */
-    public boolean shouldKeepEvent(Node item) {
-        ZonedDateTime pubDate = extractPubDateFromItem(item);
-
-        if (pubDate == null) {
-            // If no date, keep the event
-            return true;
-        }
-
-        ZonedDateTime cutoffDate = ZonedDateTime.now().minusDays(dropEventsOlderThanDays);
-        return pubDate.isAfter(cutoffDate);
-    }
-
-    /**
-     * Extracts the publication date from an RSS item.
-     *
-     * @param item The RSS item node
-     * @return The parsed publication date, or null if not found or invalid
-     */
-    public ZonedDateTime extractPubDateFromItem(Node item) {
-        NodeList children = item.getChildNodes();
-
-        for (int j = 0; j < children.getLength(); j++) {
-            Node child = children.item(j);
-            if (PUB_DATE.equals(child.getNodeName())) {
-                try {
-                    String pubDateStr = child.getTextContent();
-                    return ZonedDateTime.parse(pubDateStr, RFC_1123_FORMATTER);
-                } catch (Exception e) {
-                    LOG.debug("Failed to parse pubDate: {}", child.getTextContent(), e);
-                    return null;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Finds the publication date of the last (oldest) event in a list.
-     *
-     * @param items NodeList of RSS item elements
-     * @return Optional containing the oldest date, or empty if no items or no date
-     */
-    public Optional<ZonedDateTime> findLastPubDate(NodeList items) {
-        if (items.getLength() <= 0) {
+    private static Optional<String> childText(final Element item, final String tagName) {
+        final NodeList nodes = item.getElementsByTagName(tagName);
+        if (nodes.getLength() == 0) {
             return Optional.empty();
         }
+        final String text = nodes.item(0).getTextContent().trim();
+        return text.isEmpty() ? Optional.empty() : Optional.of(text);
+    }
 
-        Node item = items.item(items.getLength() - 1);
-        return Optional.ofNullable(extractPubDateFromItem(item));
+    private static Optional<LocalDate> extractItemDate(final Element item) {
+        return parseDate(item, EV_ENDDATE, DateTimeFormatter.ISO_LOCAL_DATE)
+            .or(() -> parseDate(item, EV_STARTDATE, DateTimeFormatter.ISO_LOCAL_DATE))
+            .or(() -> parseDate(item, PUB_DATE, DateTimeFormatter.RFC_1123_DATE_TIME));
+    }
+
+    private static Optional<LocalDate> parseDate(final Element item, final String tagName,
+                                                 final DateTimeFormatter formatter) {
+        return childText(item, tagName).flatMap(text -> {
+            try {
+                return Optional.of(LocalDate.from(formatter.parse(text)));
+            } catch (final DateTimeException e) {
+                LOG.warn("Unparseable {} '{}': {}", tagName, text, e.getMessage());
+                return Optional.empty();
+            }
+        });
+    }
+
+    private LocalDate cutoffDate() {
+        return LocalDate.now().minusDays(retentionDays);
     }
 
     /**
-     * Logs statistics about the RSS feed.
+     * Determines whether a newly scraped event is within the retention period.
      *
-     * @param totalEvents The total number of events in the feed
-     * @param droppedEventsCount The number of events that were dropped
-     * @param oldestDate The publication date of the oldest event
+     * @param event the event to check
+     * @return true if the event ends (or starts) on or after the cutoff date
      */
-    public void logFeedStatistics(int totalEvents, int droppedEventsCount,
-                                   ZonedDateTime oldestDate) {
-        if (totalEvents == 0) {
-            LOG.info("RSS feed contains 0 events");
-            if (droppedEventsCount > 0) {
-                LOG.info("Dropped {} old events (older than {} days)",
-                        droppedEventsCount, dropEventsOlderThanDays);
-            }
-            return;
-        }
+    public boolean shouldKeep(final EventItem event) {
+        requireNonNull(event, "event must not be null");
+        final LocalDate eventDate = event.eventDateEnd() != null
+            ? event.eventDateEnd()
+            : event.eventDateStart();
+        return !eventDate.isBefore(cutoffDate());
+    }
 
-        if (oldestDate != null) {
-            long daysSinceOldest = Duration.between(oldestDate, ZonedDateTime.now()).toDays();
-            LOG.info("RSS feed contains {} total events, oldest entry is {} days old",
-                    totalEvents, daysSinceOldest);
-        } else {
-            LOG.info("RSS feed contains {} total events", totalEvents);
-        }
-
-        if (droppedEventsCount > 0) {
-            LOG.info("Dropped {} old events (older than {} days)",
-                    droppedEventsCount, dropEventsOlderThanDays);
-        }
+    /**
+     * Determines whether an item from the existing feed is within the retention period.
+     *
+     * @param item the RSS item element
+     * @return true if the item's date is on or after the cutoff date, or cannot be determined
+     */
+    public boolean shouldKeep(final Element item) {
+        requireNonNull(item, "item must not be null");
+        return extractItemDate(item)
+            .map(date -> !date.isBefore(cutoffDate()))
+            .orElse(true);
     }
 }

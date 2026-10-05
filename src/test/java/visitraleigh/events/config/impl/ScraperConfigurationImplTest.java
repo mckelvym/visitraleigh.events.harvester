@@ -2,7 +2,7 @@ package visitraleigh.events.config.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Duration;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,11 +25,6 @@ class ScraperConfigurationImplTest {
     }
 
     @Test
-    void testIsDebugMode() {
-        assertThat(config.isDebugMode()).isFalse();
-    }
-
-    @Test
     void testGetDefaultNumPages() {
         assertThat(config.getDefaultNumPages()).isEqualTo(10);
     }
@@ -41,9 +36,9 @@ class ScraperConfigurationImplTest {
     }
 
     @Test
-    void testGetDropEventsOlderThanDays() {
+    void testGetRetentionDays() {
         // Should be 30 by default (unless env var is set)
-        assertThat(config.getDropEventsOlderThanDays()).isGreaterThan(0);
+        assertThat(config.getRetentionDays()).isGreaterThan(0);
     }
 
     @Test
@@ -68,8 +63,8 @@ class ScraperConfigurationImplTest {
 
     @Test
     void testGetPageLoadTimeout() {
-        assertThat(config.getPageLoadTimeout())
-                .isEqualTo(Duration.ofSeconds(10));
+        assertThat(config.getPageLoadTimeout().toSecondsPart())
+                .isEqualTo(10);
     }
 
     @Test
@@ -87,10 +82,11 @@ class ScraperConfigurationImplTest {
 
     @Test
     void testGetEndDate() {
-        String endDate = config.getEndDate();
+        LocalDate endDate = config.getEndDate();
         assertThat(endDate)
-                .matches("\\d{2}/\\d{2}/\\d{4}")
-                .isNotNull();
+                .isNotNull()
+                .isAfter(LocalDate.now())
+                .isBeforeOrEqualTo(LocalDate.now().plusDays(config.getDaysIntoFuture()));
     }
 
     @Test

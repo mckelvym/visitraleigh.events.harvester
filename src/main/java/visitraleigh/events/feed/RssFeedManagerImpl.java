@@ -5,9 +5,13 @@ import static visitraleigh.events.feed.RssElementNames.CHANNEL;
 import static visitraleigh.events.feed.RssElementNames.DESCRIPTION;
 import static visitraleigh.events.feed.RssElementNames.ENCLOSURE;
 import static visitraleigh.events.feed.RssElementNames.ENCODING_UTF8;
+import static visitraleigh.events.feed.RssElementNames.EVENT_NAMESPACE_URI;
+import static visitraleigh.events.feed.RssElementNames.EV_ENDDATE;
+import static visitraleigh.events.feed.RssElementNames.EV_STARTDATE;
 import static visitraleigh.events.feed.RssElementNames.GUID;
 import static visitraleigh.events.feed.RssElementNames.IMAGE_JPEG_TYPE;
 import static visitraleigh.events.feed.RssElementNames.INDENT_AMOUNT;
+import static visitraleigh.events.feed.RssElementNames.IS_PERMALINK_ATTR;
 import static visitraleigh.events.feed.RssElementNames.ITEM;
 import static visitraleigh.events.feed.RssElementNames.LANGUAGE;
 import static visitraleigh.events.feed.RssElementNames.LANGUAGE_VALUE;
@@ -17,20 +21,22 @@ import static visitraleigh.events.feed.RssElementNames.PUB_DATE;
 import static visitraleigh.events.feed.RssElementNames.RSS;
 import static visitraleigh.events.feed.RssElementNames.RSS_VERSION;
 import static visitraleigh.events.feed.RssElementNames.TITLE;
+import static visitraleigh.events.feed.RssElementNames.TRUE_VALUE;
 import static visitraleigh.events.feed.RssElementNames.TYPE_ATTR;
 import static visitraleigh.events.feed.RssElementNames.URL_ATTR;
 import static visitraleigh.events.feed.RssElementNames.VERSION_ATTR;
+import static visitraleigh.events.feed.RssElementNames.XMLNS_EV_ATTR;
 import static visitraleigh.events.feed.RssElementNames.XSLT_INDENT_PROPERTY;
 
 import java.io.File;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -45,6 +51,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import visitraleigh.events.config.ScraperConfiguration;
 import visitraleigh.events.domain.EventItem;
 
 /**
@@ -64,22 +71,200 @@ import visitraleigh.events.domain.EventItem;
 public class RssFeedManagerImpl implements RssFeedManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(RssFeedManagerImpl.class);
-
-    private final XmlSecurityConfigurer securityConfigurer;
+    private final ScraperConfiguration config;
     private final EventFilter eventFilter;
+    private final XmlSecurityConfigurer securityConfigurer;
 
     /**
      * Creates a new RSS feed manager.
      *
-     * @param dropEventsOlderThanDays The age threshold for dropping old events
+     * @param config The scraper configuration
      */
-    public RssFeedManagerImpl(int dropEventsOlderThanDays) {
+    public RssFeedManagerImpl(ScraperConfiguration config) {
+        this.config = requireNonNull(config, "config must not be null");
         this.securityConfigurer = new XmlSecurityConfigurer();
-        this.eventFilter = new EventFilter(dropEventsOlderThanDays);
+        this.eventFilter = new EventFilter(config);
+    }
+
+    /**
+     * Adds a description element wrapped in CDATA, omitting it when empty.
+     *
+     * @param doc         the XML document
+     * @param item        the item element to add to
+     * @param description the description HTML or text
+     */
+    private void addDescriptionElement(Document doc, Element item,
+                                       String description) {
+        if (description.isEmpty()) {
+            return;
+        }
+        Element element = doc.createElement(DESCRIPTION);
+        element.appendChild(doc.createCDATASection(description));
+        item.appendChild(element);
+    }
+
+    /**
+     * Adds a simple text element to a parent element.
+     *
+     * @param doc         The XML document
+     * @param parent      The parent element
+     * @param tagName     The tag name for the new element
+     * @param textContent The text content
+     */
+    private void addElement(Document doc, Element parent, String tagName, String textContent) {
+        Element element = doc.createElement(tagName);
+        element.setTextContent(textContent);
+        parent.appendChild(element);
+    }
+
+    /**
+     * Adds the machine-readable event dates (RSS Event module) used for retention.
+     *
+     * @param doc   the XML document
+     * @param item  the item element to add to
+     * @param event the event whose dates to add
+     */
+    private void addEventDateElements(Document doc, Element item,
+                                      EventItem event) {
+        Element startDate = doc.createElement(EV_STARTDATE);
+        startDate.setTextContent(event.eventDateStart().toString());
+        item.appendChild(startDate);
+        if (event.eventDateEnd() != null) {
+            Element endDate = doc.createElement(EV_ENDDATE);
+            endDate.setTextContent(event.eventDateEnd().toString());
+            item.appendChild(endDate);
+        }
+    }
+
+    /**
+     * Adds an event item to the RSS document.
+     *
+     * @param doc     The XML document
+     * @param channel The channel element
+     * @param event   The event to add
+     */
+    private void addEventItem(Document doc, Element channel, EventItem event) {
+        Element item = doc.createElement(ITEM);
+        channel.appendChild(item);
+
+        addElement(doc, item, TITLE, event.title());
+        addElement(doc, item, LINK, event.link());
+        addDescriptionElement(doc, item, event.sanitizedDescription());
+        addGuidElement(doc, item, event);
+        addEventDateElements(doc, item, event);
+        addElement(doc, item, PUB_DATE,
+            ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME));
+
+        if (event.hasImage()) {
+            Element enclosure = doc.createElement(ENCLOSURE);
+            enclosure.setAttribute(URL_ATTR, event.imageUrl());
+            enclosure.setAttribute(TYPE_ATTR, IMAGE_JPEG_TYPE);
+            item.appendChild(enclosure);
+        }
+    }
+
+    /**
+     * Adds the item GUID, which is always the event URL and therefore a permalink.
+     *
+     * @param doc   the XML document
+     * @param item  the item element to add to
+     * @param event the event whose GUID to add
+     */
+    private void addGuidElement(Document doc, Element item, EventItem event) {
+        Element guid = doc.createElement(GUID);
+        guid.setAttribute(IS_PERMALINK_ATTR, TRUE_VALUE);
+        guid.setTextContent(event.guid());
+        item.appendChild(guid);
     }
 
     @Override
-    public Set<String> loadExistingGuids(String filePath) throws Exception {
+    public void generateFeed(String filePath, List<EventItem> newEvents,
+                             String existingFilePath)
+        throws Exception {
+        requireNonNull(filePath, "filePath must not be null");
+        requireNonNull(newEvents, "newEvents must not be null");
+        requireNonNull(existingFilePath, "existingFilePath must not be null");
+
+        LOG.info("Generating RSS feed with {} new events", newEvents.size());
+
+        // Create secure document builder
+        DocumentBuilderFactory factory = securityConfigurer.createSecureDocumentBuilderFactory();
+        factory.setIgnoringElementContentWhitespace(true);
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        Document doc = builder.newDocument();
+
+        // Build RSS structure
+        Element rss = doc.createElement(RSS);
+        rss.setAttribute(VERSION_ATTR, RSS_VERSION);
+        rss.setAttribute(XMLNS_EV_ATTR, EVENT_NAMESPACE_URI);
+        doc.appendChild(rss);
+
+        Element channel = doc.createElement(CHANNEL);
+        rss.appendChild(channel);
+
+        // Add channel metadata
+        addElement(doc, channel, TITLE, config.getFeedTitle());
+        addElement(doc, channel, LINK, config.getFeedLink());
+        addElement(doc, channel, DESCRIPTION, config.getFeedDescription());
+        addElement(doc, channel, LANGUAGE, LANGUAGE_VALUE);
+        addElement(doc, channel, LAST_BUILD_DATE,
+            ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME));
+
+        // Add new events (sorted by date, descending)
+        List<EventItem> sortedEvents = new ArrayList<>(newEvents);
+        sortedEvents.sort(Comparator.comparing(EventItem::eventDateStart).reversed());
+        for (EventItem event : sortedEvents) {
+            if (eventFilter.shouldKeep(event)) {
+                addEventItem(doc, channel, event);
+            }
+        }
+
+        // Import existing events (filtered by age)
+        importExistingEvents(doc, channel, new File(existingFilePath));
+
+        // Write RSS to file
+        writeRssToFile(doc, filePath);
+    }
+
+    /**
+     * Imports items from the existing feed, dropping those past the retention period.
+     *
+     * <p>Errors are logged rather than thrown so a scheduled run still publishes new events.
+     *
+     * @param doc              the new feed document
+     * @param channel          the channel to append items to
+     * @param existingFeedFile the existing feed file (may not exist)
+     */
+    private void importExistingEvents(Document doc, Element channel,
+                                      File existingFeedFile) {
+        if (!existingFeedFile.exists()) {
+            return;
+        }
+        try {
+            DocumentBuilder builder =
+                securityConfigurer.createSecureDocumentBuilderFactory().newDocumentBuilder();
+            NodeList items = builder.parse(existingFeedFile).getElementsByTagName(ITEM);
+            int imported = 0;
+            for (int i = 0; i < items.getLength(); i++) {
+                Element item = (Element) items.item(i);
+                if (eventFilter.shouldKeep(item)) {
+                    Node importedNode = doc.importNode(item, true);
+                    removeWhitespaceNodes(importedNode);
+                    channel.appendChild(importedNode);
+                    imported++;
+                }
+            }
+            LOG.info("Imported {} existing events, dropped {} past retention",
+                imported, items.getLength() - imported);
+        } catch (Exception e) {
+            LOG.error("Failed to import existing events from {}: {}",
+                existingFeedFile, e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Set<String> loadExistingGuids(String filePath)
+        throws Exception {
         requireNonNull(filePath, "filePath must not be null");
         File rssFile = new File(filePath);
         if (!rssFile.exists()) {
@@ -101,130 +286,6 @@ public class RssFeedManagerImpl implements RssFeedManager {
 
         LOG.info("Loaded {} existing event GUIDs from feed", guids.size());
         return guids;
-    }
-
-    @Override
-    public void generateFeed(
-            String filePath,
-            List<EventItem> newEvents,
-            String channelTitle,
-            String channelLink,
-            String channelDescription) throws Exception {
-        requireNonNull(filePath, "filePath must not be null");
-        requireNonNull(newEvents, "newEvents must not be null");
-        requireNonNull(channelTitle, "channelTitle must not be null");
-        requireNonNull(channelLink, "channelLink must not be null");
-        requireNonNull(channelDescription, "channelDescription must not be null");
-
-        LOG.info("Generating RSS feed with {} new events", newEvents.size());
-
-        // Create secure document builder
-        DocumentBuilderFactory factory = securityConfigurer.createSecureDocumentBuilderFactory();
-        factory.setIgnoringElementContentWhitespace(true);
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.newDocument();
-
-        // Build RSS structure
-        Element rss = doc.createElement(RSS);
-        rss.setAttribute(VERSION_ATTR, RSS_VERSION);
-        doc.appendChild(rss);
-
-        Element channel = doc.createElement(CHANNEL);
-        rss.appendChild(channel);
-
-        // Add channel metadata
-        addElement(doc, channel, TITLE, channelTitle);
-        addElement(doc, channel, LINK, channelLink);
-        addElement(doc, channel, DESCRIPTION, channelDescription);
-        addElement(doc, channel, LANGUAGE, LANGUAGE_VALUE);
-        addElement(doc, channel, LAST_BUILD_DATE,
-                ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME));
-
-        // Add new events (sorted by ID, descending)
-        newEvents.sort(Comparator.reverseOrder());
-        for (EventItem event : newEvents) {
-            addEventItem(doc, channel, event);
-        }
-
-        // Import existing events (filtered by age)
-        int droppedEventsCount = importExistingEvents(filePath, builder, doc, channel);
-
-        // Log statistics
-        NodeList items = doc.getElementsByTagName(ITEM);
-        Optional<ZonedDateTime> oldestDate = eventFilter.findLastPubDate(items);
-        eventFilter.logFeedStatistics(items.getLength(), droppedEventsCount,
-                oldestDate.orElse(null));
-
-        // Write RSS to file
-        writeRssToFile(doc, filePath);
-    }
-
-    /**
-     * Imports existing events from an old RSS file, filtering by age.
-     *
-     * @param filePath The path to the old RSS file
-     * @param builder The document builder
-     * @param doc The new document to import into
-     * @param channel The channel element to append items to
-     * @return The number of events dropped due to age
-     * @throws Exception if import fails
-     */
-    private int importExistingEvents(
-            String filePath,
-            DocumentBuilder builder,
-            Document doc,
-            Element channel) throws Exception {
-
-        File oldFile = new File(filePath);
-
-        if (!oldFile.exists()) {
-            return 0;
-        }
-
-        Document oldDoc = builder.parse(oldFile);
-        oldDoc.getDocumentElement().normalize();
-        NodeList oldItems = oldDoc.getElementsByTagName(ITEM);
-
-        LOG.info("Importing {} existing events from feed", oldItems.getLength());
-
-        int droppedEventsCount = 0;
-        for (int i = 0; i < oldItems.getLength(); i++) {
-            Node oldItem = oldItems.item(i);
-
-            // Filter by age
-            if (!eventFilter.shouldKeepEvent(oldItem)) {
-                droppedEventsCount++;
-                continue;
-            }
-
-            // Import and clean up the node
-            Node importedNode = doc.importNode(oldItem, true);
-            removeWhitespaceNodes(importedNode);
-            channel.appendChild(importedNode);
-        }
-
-        return droppedEventsCount;
-    }
-
-    /**
-     * Writes the RSS document to a file with proper formatting.
-     *
-     * @param doc The RSS document
-     * @param filePath The output file path
-     * @throws Exception if writing fails
-     */
-    private void writeRssToFile(Document doc, String filePath) throws Exception {
-        TransformerFactory transformerFactory = securityConfigurer.createSecureTransformerFactory();
-        Transformer transformer = transformerFactory.newTransformer();
-        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-        transformer.setOutputProperty(XSLT_INDENT_PROPERTY, INDENT_AMOUNT);
-        transformer.setOutputProperty(OutputKeys.ENCODING, ENCODING_UTF8);
-
-        DOMSource source = new DOMSource(doc);
-        StreamResult result = new StreamResult(new File(filePath));
-        transformer.transform(source, result);
-
-        LOG.info("RSS feed written to: {}", filePath);
     }
 
     /**
@@ -256,42 +317,24 @@ public class RssFeedManagerImpl implements RssFeedManager {
     }
 
     /**
-     * Adds an event item to the RSS document.
+     * Writes the RSS document to a file with proper formatting.
      *
-     * @param doc The XML document
-     * @param channel The channel element
-     * @param event The event to add
+     * @param doc      The RSS document
+     * @param filePath The output file path
+     * @throws Exception if writing fails
      */
-    private void addEventItem(Document doc, Element channel, EventItem event) {
-        Element item = doc.createElement(ITEM);
-        channel.appendChild(item);
+    private void writeRssToFile(Document doc, String filePath)
+        throws Exception {
+        TransformerFactory transformerFactory = securityConfigurer.createSecureTransformerFactory();
+        Transformer transformer = transformerFactory.newTransformer();
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty(XSLT_INDENT_PROPERTY, INDENT_AMOUNT);
+        transformer.setOutputProperty(OutputKeys.ENCODING, ENCODING_UTF8);
 
-        addElement(doc, item, TITLE, event.title());
-        addElement(doc, item, LINK, event.link());
-        addElement(doc, item, DESCRIPTION, event.description());
-        addElement(doc, item, GUID, event.guid());
-        addElement(doc, item, PUB_DATE,
-                ZonedDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME));
+        DOMSource source = new DOMSource(doc);
+        StreamResult result = new StreamResult(new File(filePath));
+        transformer.transform(source, result);
 
-        if (!event.imageUrl().isEmpty()) {
-            Element enclosure = doc.createElement(ENCLOSURE);
-            enclosure.setAttribute(URL_ATTR, event.imageUrl());
-            enclosure.setAttribute(TYPE_ATTR, IMAGE_JPEG_TYPE);
-            item.appendChild(enclosure);
-        }
-    }
-
-    /**
-     * Adds a simple text element to a parent element.
-     *
-     * @param doc The XML document
-     * @param parent The parent element
-     * @param tagName The tag name for the new element
-     * @param textContent The text content
-     */
-    private void addElement(Document doc, Element parent, String tagName, String textContent) {
-        Element element = doc.createElement(tagName);
-        element.setTextContent(textContent);
-        parent.appendChild(element);
+        LOG.info("RSS feed written to: {}", filePath);
     }
 }

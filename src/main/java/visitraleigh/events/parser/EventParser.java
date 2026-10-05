@@ -27,8 +27,8 @@ public interface EventParser {
      *   <li>Extracts title, date, description, and image using field extractors</li>
      * </ul>
      *
-     * @param linkElement The HTML element containing the event link
+     * @param eventElement The HTML element containing the event link
      * @return An Optional containing the parsed EventItem, or empty if parsing fails
      */
-    Optional<EventItem> parseEvent(Element linkElement);
+    Optional<EventItem> parseEvent(Element eventElement);
 }

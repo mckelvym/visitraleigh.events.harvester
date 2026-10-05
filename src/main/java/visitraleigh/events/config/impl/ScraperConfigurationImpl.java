@@ -1,11 +1,11 @@
 package visitraleigh.events.config.impl;
 
+import static visitraleigh.events.parser.impl.CssSelectors.LAST_PAGE_LINK_ELEMENT;
+import static visitraleigh.events.webdriver.ChromeOptionsConstants.DEFAULT_WINDOW_SIZE;
+
 import java.time.Duration;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
 import java.util.regex.Pattern;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import visitraleigh.events.config.ScraperConfiguration;
 
 /**
@@ -23,32 +23,27 @@ import visitraleigh.events.config.ScraperConfiguration;
  */
 public class ScraperConfigurationImpl implements ScraperConfiguration {
 
-    private static final Logger LOG =
-            LoggerFactory.getLogger(ScraperConfigurationImpl.class);
-
     // Site-specific constants
     private static final String BASE_URL = "https://www.visitraleigh.com/events/";
-    private static final boolean DEBUG_MODE = false;
     private static final int DEFAULT_NUM_PAGES = 10;
-    private static final String LAST_PAGE_LINK_ELEMENT = "li.arrow.arrow-next.arrow-double";
-    private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(10);
-
+    private static final Pattern EVENT_URL_PATTERN =
+            Pattern.compile("/event/[^/]+/\\d+/?$");
+    private static final String FEED_DESCRIPTION = "Events from Visit Raleigh";
+    // RSS feed metadata
+    private static final String FEED_TITLE = "Visit Raleigh Events";
     // Regex patterns
     private static final Pattern NUM_PAGES_PATTERN =
             Pattern.compile("(?:^|[?&])page=(\\d+)");
-    private static final Pattern EVENT_URL_PATTERN =
-            Pattern.compile("/event/[^/]+/\\d+/?$");
-
+    private static final Duration PAGE_LOAD_TIMEOUT = Duration.ofSeconds(10);
     // Browser configuration
     private static final String USER_AGENT =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     + "AppleWebKit/537.36 (KHTML, like Gecko) "
                     + "Chrome/120.0.0.0 Safari/537.36";
-    private static final String WINDOW_SIZE = "1920,1080";
 
     // Environment-based configuration
     private final int daysIntoFuture;
-    private final int dropEventsOlderThanDays;
+    private final int retentionDays;
 
     /**
      * Creates a new configuration with default values and environment overrides.
@@ -59,72 +54,7 @@ public class ScraperConfigurationImpl implements ScraperConfiguration {
      */
     public ScraperConfigurationImpl() {
         this.daysIntoFuture = getDaysIntoFutureFromEnv();
-        this.dropEventsOlderThanDays = getDropEventsOlderThanDaysFromEnv();
-    }
-
-    @Override
-    public String getBaseUrl() {
-        return BASE_URL;
-    }
-
-    @Override
-    public boolean isDebugMode() {
-        return DEBUG_MODE;
-    }
-
-    @Override
-    public int getDefaultNumPages() {
-        return DEFAULT_NUM_PAGES;
-    }
-
-    @Override
-    public int getDaysIntoFuture() {
-        return daysIntoFuture;
-    }
-
-    @Override
-    public int getDropEventsOlderThanDays() {
-        return dropEventsOlderThanDays;
-    }
-
-    @Override
-    public String getLastPageLinkSelector() {
-        return LAST_PAGE_LINK_ELEMENT;
-    }
-
-    @Override
-    public Pattern getNumPagesPattern() {
-        return NUM_PAGES_PATTERN;
-    }
-
-    @Override
-    public Pattern getEventUrlPattern() {
-        return EVENT_URL_PATTERN;
-    }
-
-    @Override
-    public Duration getPageLoadTimeout() {
-        return PAGE_LOAD_TIMEOUT;
-    }
-
-    @Override
-    public String getUserAgent() {
-        return USER_AGENT;
-    }
-
-    @Override
-    public String getWindowSize() {
-        return WINDOW_SIZE;
-    }
-
-    /**
-     * Gets the end date for event scraping based on days into future.
-     *
-     * @return The end date formatted as MM/dd/yyyy
-     */
-    public String getEndDate() {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
-        return ZonedDateTime.now().plusDays(daysIntoFuture).format(formatter);
+        this.retentionDays = getDropEventsOlderThanDaysFromEnv();
     }
 
     /**
@@ -138,8 +68,7 @@ public class ScraperConfigurationImpl implements ScraperConfiguration {
             try {
                 return Integer.parseInt(envValue);
             } catch (NumberFormatException e) {
-                LOG.warn("Invalid DAYS_INTO_FUTURE value: {}, using default of 30",
-                        envValue);
+                // ignore
             }
         }
         return 30;
@@ -156,11 +85,83 @@ public class ScraperConfigurationImpl implements ScraperConfiguration {
             try {
                 return Integer.parseInt(envValue);
             } catch (NumberFormatException e) {
-                LOG.warn(
-                        "Invalid DROP_EVENTS_OLDER_THAN_DAYS value: {}, using default of 30",
-                        envValue);
+                // ignore
             }
         }
         return 30;
+    }
+
+    @Override
+    public String getBaseUrl() {
+        return BASE_URL;
+    }
+
+    @Override
+    public int getDaysIntoFuture() {
+        return daysIntoFuture;
+    }
+
+    @Override
+    public int getDefaultNumPages() {
+        return DEFAULT_NUM_PAGES;
+    }
+
+    /**
+     * Gets the end date for event scraping based on days into future.
+     *
+     * @return The end date as a LocalDate object
+     */
+    public LocalDate getEndDate() {
+        return LocalDate.now().plusDays(daysIntoFuture);
+    }
+
+    @Override
+    public Pattern getEventUrlPattern() {
+        return EVENT_URL_PATTERN;
+    }
+
+    @Override
+    public String getFeedDescription() {
+        return FEED_DESCRIPTION;
+    }
+
+    @Override
+    public String getFeedLink() {
+        return getBaseUrl();
+    }
+
+    @Override
+    public String getFeedTitle() {
+        return FEED_TITLE;
+    }
+
+    @Override
+    public String getLastPageLinkSelector() {
+        return LAST_PAGE_LINK_ELEMENT;
+    }
+
+    @Override
+    public Pattern getNumPagesPattern() {
+        return NUM_PAGES_PATTERN;
+    }
+
+    @Override
+    public Duration getPageLoadTimeout() {
+        return PAGE_LOAD_TIMEOUT;
+    }
+
+    @Override
+    public int getRetentionDays() {
+        return retentionDays;
+    }
+
+    @Override
+    public String getUserAgent() {
+        return USER_AGENT;
+    }
+
+    @Override
+    public String getWindowSize() {
+        return DEFAULT_WINDOW_SIZE;
     }
 }
